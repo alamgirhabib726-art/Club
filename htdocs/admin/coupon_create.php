@@ -32,16 +32,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Secure random coupon (8 chars)
         $code = strtoupper(bin2hex(random_bytes(4)));
-        $dbType = ($type === 'registration') ? 'apply' : $type;
 
         $db->prepare("
             INSERT INTO coupons
             (code, amount, type, status, created_at)
-            VALUES (?, ?, ?, 'active', NOW())
+            VALUES (?, ?, ?, 'unused', NOW())
         ")->execute([
             $code,
             $amount,
-            $dbType
+            $type
         ]);
 
         $msg = "✅ Coupon Created: <strong>$code</strong>";

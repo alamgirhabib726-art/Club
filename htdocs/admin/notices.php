@@ -264,7 +264,7 @@ button{
     <a class="active" href="notices.php">Notices</a>
     <a href="users.php">Users</a>
     <a href="payments.php">Payments</a>
-    <a href="activity_logs.php">Logs</a>
+    <a href="logs.php">Logs</a>
   </div>
 
   <div class="admin-main">

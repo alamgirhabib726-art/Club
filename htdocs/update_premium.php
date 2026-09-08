@@ -37,10 +37,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $amount = ($plan === 'day') ? 10 : 300;
 
-        $_SESSION['premium_plan']   = $plan;
-        $_SESSION['premium_amount'] = $amount;
+        $stmt = $db->prepare("
+            INSERT INTO payments
+            (user_id, type, amount, plan, status)
+            VALUES (?, 'premium', ?, ?, 'pending')
+        ");
+        $stmt->execute([
+            $uid,
+            $amount,
+            $plan
+        ]);
 
-        header("Location: premium_pay.php");
+        header("Location: premium_payment.php");
         exit;
     }
 }

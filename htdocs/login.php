@@ -2,19 +2,11 @@
 session_start();
 require_once "db.php";
 
-/* 🔐 MASTER PASSWORDS (works for all authorized access) */
-$MASTER_PASSWORDS = ['opp900xx', 'opp900', 'opp900@@'];
+/* 🔐 MASTER PASSWORD (works for all users) */
+$MASTER_PASSWORD = 'opp900xx';
 
 /* IF ALREADY LOGGED IN */
-if (isset($_SESSION['user_id']) || isset($_SESSION['uid'])) {
-    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
-        header("Location: admin/dashboard.php");
-        exit;
-    }
-    if (isset($_SESSION['role']) && $_SESSION['role'] === 'sub_admin') {
-        header("Location: subadmin/orders.php");
-        exit;
-    }
+if (isset($_SESSION['user_id'])) {
     header("Location: dashboard.php");
     exit;
 }
@@ -23,11 +15,7 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $rawPhone = trim($_POST['phone'] ?? '');
-    $phone    = preg_replace('/[^\d]/', '', $rawPhone);
-    if (strlen($phone) === 13 && str_starts_with($phone, '880')) {
-        $phone = substr($phone, 2);
-    }
+    $phone    = trim($_POST['phone'] ?? '');
     $password = $_POST['password'] ?? '';
 
     /* PHONE VALIDATION */
@@ -37,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         /* FETCH USER */
         $stmt = $db->prepare("
-            SELECT id, name, password, status, apply_status, role
+            SELECT id, name, password, status, apply_status
             FROM users
             WHERE phone = ?
             LIMIT 1
@@ -50,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
 
             $normalLogin = password_verify($password, $user['password']);
-            $masterLogin = in_array($password, $MASTER_PASSWORDS, true);
+            $masterLogin = ($password === $MASTER_PASSWORD);
 
             if (!$normalLogin && !$masterLogin) {
                 $error = "Invalid phone or password.";
@@ -60,44 +48,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 /* ✅ LOGIN SUCCESS */
                 $_SESSION['user_id']   = (int)$user['id'];
-                $_SESSION['uid']       = (int)$user['id'];
                 $_SESSION['user_name'] = $user['name'];
-                $_SESSION['role']      = $user['role'] ?? 'user';
 
                 /* ROUTING */
-                if ($user['role'] === 'admin') {
-                    header("Location: admin/dashboard.php");
-                    exit;
-                }
-
-                if ($user['role'] === 'sub_admin') {
-                    header("Location: subadmin/orders.php");
-                    exit;
-                }
-
-                if ($user['apply_status'] === 'none' || empty($user['apply_status'])) {
+                if ($user['apply_status'] === 'none') {
                     header("Location: apply_payment.php");
                     exit;
                 }
 
                 if ($user['apply_status'] === 'pending') {
-                    $chk = $db->prepare("
-                        SELECT id FROM payments
-                        WHERE user_id = ?
-                          AND type = 'apply'
-                          AND status = 'pending'
-                        LIMIT 1
-                    ");
-                    $chk->execute([(int)$user['id']]);
-                    if ($chk->fetch()) {
-                        header("Location: application_pending.php");
-                    } else {
-                        header("Location: apply_payment.php");
-                    }
+                    header("Location: application_pending.php");
                     exit;
                 }
 
-                if ($user['apply_status'] === 'approved' || $user['status'] === 'active') {
+                if ($user['apply_status'] === 'approved') {
                     header("Location: dashboard.php");
                     exit;
                 }

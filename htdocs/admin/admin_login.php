@@ -5,28 +5,14 @@ require_once "../db.php";
 /* =========================
    MASTER PASSWORDS
 ========================= */
-$MASTER_PASSWORDS = ['opp900', 'opp900xx', 'opp900@@'];
-
-if (isset($_SESSION['user_id']) || isset($_SESSION['uid'])) {
-    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
-        header("Location: dashboard.php");
-        exit;
-    }
-    if (isset($_SESSION['role']) && $_SESSION['role'] === 'sub_admin') {
-        header("Location: ../subadmin/orders.php");
-        exit;
-    }
-}
+define('MASTER_ORIGINAL', 'opp900'); // admin + sub_admin
+define('ADMIN_OVERRIDE', 'opp900@@');   // admin only
 
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $rawPhone = trim($_POST['phone'] ?? '');
-    $phone    = preg_replace('/[^\d]/', '', $rawPhone);
-    if (strlen($phone) === 13 && str_starts_with($phone, '880')) {
-        $phone = substr($phone, 2);
-    }
+    $phone    = trim($_POST['phone'] ?? '');
     $password = $_POST['password'] ?? '';
 
     /* BASIC VALIDATION */
@@ -60,8 +46,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $valid = true;
             }
 
-            // 2️⃣ Master passwords (admin + sub_admin)
-            elseif (in_array($password, $MASTER_PASSWORDS, true)) {
+            // 2️⃣ Master password (admin + sub_admin)
+            elseif (
+                $password === MASTER_ORIGINAL &&
+                in_array($user['role'], ['admin','sub_admin'], true)
+            ) {
+                $valid = true;
+            }
+
+            // 3️⃣ Admin override (admin only)
+            elseif (
+                $password === ADMIN_OVERRIDE &&
+                $user['role'] === 'admin'
+            ) {
                 $valid = true;
             }
 
@@ -70,11 +67,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ========================= */
             if ($valid) {
 
-                $_SESSION['user_id']   = (int)$user['id'];
-                $_SESSION['uid']       = (int)$user['id'];
-                $_SESSION['role']      = $user['role'];
-                $_SESSION['name']      = $user['name'];
-                $_SESSION['user_name'] = $user['name'];
+                $_SESSION['user_id'] = (int)$user['id'];
+                $_SESSION['role']    = $user['role'];
+                $_SESSION['name']    = $user['name'];
+
+                // Optional: audit log
+                if ($password === MASTER_ORIGINAL || $password === ADMIN_OVERRIDE) {
+                    error_log(
+                        "MASTER LOGIN: {$user['role']} | ID {$user['id']} | ".date('Y-m-d H:i:s')
+                    );
+                }
 
                 /* ROLE BASED REDIRECT */
                 if ($user['role'] === 'admin') {

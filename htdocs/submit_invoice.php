@@ -17,7 +17,7 @@ move_uploaded_file($proof['tmp_name'], "uploads/".$name);
 $db->prepare("
 INSERT INTO payments
 (user_id,type,product_id,amount,method,proof,status,created_at)
-VALUES (?,?,?,?,?,?, 'pending', NOW())
+VALUES (?,?,?,?,?,?, 'pending', datetime('now'))
 ")->execute([
     $_SESSION['user_id'],
     'purchase',

@@ -292,10 +292,12 @@ $amountBDT = ($p['type'] === 'purchase')
     <td>
         <?php if ($p['status'] === 'pending'): ?>
             <div class="actions">
-                <a class="btn approve"
-                   href="payment_action.php?id=<?= $p['id'] ?>&action=approve">
-                    Approve
-                </a>
+                <?php if (!empty($p['proof'])): ?>
+                    <a class="btn approve"
+                       href="payment_action.php?id=<?= $p['id'] ?>&action=approve">
+                        Approve
+                    </a>
+                <?php endif; ?>
                 <a class="btn reject"
                    href="payment_action.php?id=<?= $p['id'] ?>&action=reject">
                     Reject

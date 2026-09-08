@@ -6,12 +6,12 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     foreach($_POST as $k=>$v){
         $db->prepare("
           INSERT INTO settings (k,v) VALUES (?,?)
-          ON DUPLICATE KEY UPDATE v=VALUES(v)
+          ON CONFLICT(k) DO UPDATE SET v=excluded.v
         ")->execute([$k,$v]);
     }
 }
 
-$settings = $db->query("SELECT k, v FROM settings")
+$settings = $db->query("SELECT * FROM settings")
 ->fetchAll(PDO::FETCH_KEY_PAIR);
 ?>
 <!doctype html><html><body>

@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = "শুধু ছবি ফাইল অনুমোদিত";
             } else {
 
-                $uploadDir = __DIR__ . "/uploads/premium";
+                $uploadDir = __DIR__ . "/../uploads/premium";
                 if (!is_dir($uploadDir)) {
                     mkdir($uploadDir, 0755, true);
                 }

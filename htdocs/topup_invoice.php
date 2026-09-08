@@ -10,24 +10,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 /* ===============================
-   CREATE NEW PAYMENT IF COMING FROM TOPUP
-================================ */
-if (!isset($_GET['id']) && $_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['amount'])) {
-    $amount = (float)$_POST['amount'];
-    $method = trim($_POST['method'] ?? '');
-    if ($amount >= 50) {
-        $stmt = $db->prepare("
-            INSERT INTO payments (user_id, type, amount, method, status, created_at)
-            VALUES (?, 'deposit', ?, ?, 'pending', NOW())
-        ");
-        $stmt->execute([$_SESSION['user_id'], $amount, $method]);
-        $newId = (int)$db->lastInsertId();
-        header("Location: topup_invoice.php?id=" . $newId);
-        exit;
-    }
-}
-
-/* ===============================
    VALIDATE PAYMENT ID
 ================================ */
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
@@ -61,11 +43,7 @@ $methods = [
     ],
     'nagad' => [
         'name'   => 'Nagad',
-        'number' => '01788674353'
-    ],
-    'rocket' => [
-        'name'   => 'Rocket',
-        'number' => '01788674353'
+        'number' => '018XXXXXXXX'
     ]
 ];
 
