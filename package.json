@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "php -S 0.0.0.0:3000 -t htdocs router.php",
-    "start": "php -S 0.0.0.0:3000 -t htdocs router.php",
+    "dev": "bash run.sh",
+    "start": "bash run.sh",
     "build": "node -e 'console.log(\"Build complete\")'"
   }
 }
