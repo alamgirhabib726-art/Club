@@ -64,8 +64,8 @@ try {
 
         // optional: log ledger
         $db->prepare("
-            INSERT INTO coin_history (user_id, change, type, reference)
-            VALUES (?, 0, 'purchase', 'Order approved')
+            INSERT INTO coin_history (user_id, amount, `change`, type, reference, created_at)
+            VALUES (?, 0, 0, 'purchase', 'Order approved', NOW())
         ")->execute([$order['user_id']]);
     }
 
@@ -91,10 +91,11 @@ try {
 
         // ledger refund
         $db->prepare("
-            INSERT INTO coin_history (user_id, change, type, reference)
-            VALUES (?, ?, 'refund', 'Purchase rejected')
+            INSERT INTO coin_history (user_id, amount, `change`, type, reference, created_at)
+            VALUES (?, ?, ?, 'refund', 'Purchase rejected', NOW())
         ")->execute([
             $order['user_id'],
+            $order['amount'],
             $order['amount']
         ]);
     }
