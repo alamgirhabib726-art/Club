@@ -8,7 +8,9 @@ nixPkgs = [
     "php82Extensions.gd",
     "php82Extensions.bcmath",
     "mariadb",
-    "bash"
+    "bash",
+    "nodejs",
+    "npm"
 ]
 
 [phases.install]

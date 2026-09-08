@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     unzip \
     bash \
+    nodejs \
+    npm \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
     pdo \
@@ -25,6 +27,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gd \
     zip \
     bcmath \
+    && which node && which npm \
+    && ln -sf $(which node) /usr/local/bin/node \
+    && ln -sf $(which npm) /usr/local/bin/npm \
+    && ln -sf $(which npx) /usr/local/bin/npx \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -5,13 +5,6 @@
   "scripts": {
     "dev": "bash run.sh",
     "start": "bash run.sh",
-    "build": "node -e 'console.log(\"Build complete\")'"
-  },
-  "dependencies": {
-    "@php-wasm/node": "^3.1.53",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "multer": "^2.3.0"
+    "build": "echo 'Build complete'"
   }
 }
