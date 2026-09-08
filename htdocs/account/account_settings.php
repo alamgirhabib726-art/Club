@@ -366,7 +366,7 @@ button{
 </div>
 
 <div class="card">
-    <a href="logout.php" class="logout-btn">🚪 Logout</a>
+    <a href="../logout.php" class="logout-btn">🚪 Logout</a>
 </div>
 
 </div>
@@ -383,22 +383,22 @@ button{
 <!-- ===== MANUAL BOTTOM NAV ===== -->
 <div class="manual-nav">
 
-    <a class="nav-btn" href="dashboard.php">
+    <a class="nav-btn" href="../dashboard.php">
         <div class="icon">🏠</div>
         <span>Home</span>
     </a>
 
-    <a class="nav-btn" href="earn.php">
+    <a class="nav-btn" href="../earn.php">
         <div class="icon">💰</div>
         <span>Earn</span>
     </a>
 
-    <a class="nav-btn center" href="purchase.php">
+    <a class="nav-btn center" href="../purchase.php">
         <div class="icon">🛒</div>
         <span>Buy</span>
     </a>
 
-    <a class="nav-btn" href="headtail.php">
+    <a class="nav-btn" href="../headtail.php">
         <div class="icon">🎲</div>
         <span>Head/Tail</span>
     </a>

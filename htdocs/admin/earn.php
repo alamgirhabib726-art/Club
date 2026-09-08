@@ -56,7 +56,7 @@ if (isset($_GET['toggle'])) {
         WHERE id=?
     ")->execute([$id]);
 
-    header("Location: earn_buttons.php");
+    header("Location: earn.php");
     exit;
 }
 

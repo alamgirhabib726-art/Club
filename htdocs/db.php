@@ -3,10 +3,31 @@
    DATABASE CONNECTION
 ================================================== */
 
-$DB_HOST = getenv('DB_HOST') ?: '127.0.0.1';
-$DB_NAME = getenv('DB_NAME') ?: 'if0_40736960_club';
-$DB_USER = getenv('DB_USER') ?: 'if0_40736960';
-$DB_PASS = getenv('DB_PASS') ?: 'kUTjS5kXvmO';
+/* ==================================================
+   DATABASE CONFIGURATION & AUTO-DISCOVERY (RAILWAY / CLOUD COMPATIBLE)
+================================================== */
+
+$dbUrl = getenv('MYSQL_URL') ?: (getenv('DATABASE_URL') ?: '');
+$DB_HOST = '127.0.0.1';
+$DB_PORT = '3306';
+$DB_NAME = 'if0_40736960_club';
+$DB_USER = 'root';
+$DB_PASS = '';
+
+if (!empty($dbUrl) && str_starts_with($dbUrl, 'mysql://')) {
+    $parsedUrl = parse_url($dbUrl);
+    $DB_HOST = $parsedUrl['host'] ?? '127.0.0.1';
+    $DB_PORT = (string)($parsedUrl['port'] ?? '3306');
+    $DB_USER = $parsedUrl['user'] ?? 'root';
+    $DB_PASS = $parsedUrl['pass'] ?? '';
+    $DB_NAME = ltrim($parsedUrl['path'] ?? 'if0_40736960_club', '/');
+} else {
+    $DB_HOST = getenv('MYSQLHOST') ?: (getenv('MYSQL_HOST') ?: (getenv('DB_HOST') ?: '127.0.0.1'));
+    $DB_PORT = getenv('MYSQLPORT') ?: (getenv('MYSQL_PORT') ?: (getenv('DB_PORT') ?: '3306'));
+    $DB_NAME = getenv('MYSQLDATABASE') ?: (getenv('MYSQL_DATABASE') ?: (getenv('DB_NAME') ?: 'if0_40736960_club'));
+    $DB_USER = getenv('MYSQLUSER') ?: (getenv('MYSQL_USER') ?: (getenv('DB_USER') ?: (getenv('DB_HOST') ? 'if0_40736960' : 'root')));
+    $DB_PASS = getenv('MYSQLPASSWORD') ?: (getenv('MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: (getenv('DB_HOST') ? 'kUTjS5kXvmO' : '')));
+}
 
 $pdoOptions = [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -15,19 +36,42 @@ $pdoOptions = [
 ];
 
 $db = null;
+
+// Helper to auto-import schema if database is newly provisioned
+function bootstrapDatabaseIfEmpty($pdo) {
+    try {
+        $chk = $pdo->query("SHOW TABLES LIKE 'users'")->fetch();
+        if (!$chk) {
+            $sqlFile = __DIR__ . '/../database.sql';
+            if (file_exists($sqlFile)) {
+                $sqlContent = file_get_contents($sqlFile);
+                // Execute schema
+                $pdo->exec($sqlContent);
+            }
+        }
+    } catch (Throwable $t) {
+        // Continue if check fails
+    }
+}
+
 try {
-    $db = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, $pdoOptions);
+    $dsn = "mysql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_NAME;charset=utf8mb4";
+    $db = new PDO($dsn, $DB_USER, $DB_PASS, $pdoOptions);
+    bootstrapDatabaseIfEmpty($db);
 } catch (PDOException $e) {
     try {
-        $db = new PDO("mysql:host=127.0.0.1;dbname=$DB_NAME;charset=utf8mb4", "root", "", $pdoOptions);
+        $db = new PDO("mysql:host=127.0.0.1;dbname=if0_40736960_club;charset=utf8mb4", "root", "", $pdoOptions);
+        bootstrapDatabaseIfEmpty($db);
     } catch (PDOException $e2) {
+        @shell_exec('mariadbd --user=mysql --datadir=/var/lib/mysql >/dev/null 2>&1 &');
         @shell_exec('su -s /bin/bash mysql -c "mariadbd --datadir=/var/lib/mysql" >/dev/null 2>&1 &');
-        usleep(500000);
+        usleep(600000);
         try {
-            $db = new PDO("mysql:host=127.0.0.1;dbname=$DB_NAME;charset=utf8mb4", "root", "", $pdoOptions);
+            $db = new PDO("mysql:host=127.0.0.1;dbname=if0_40736960_club;charset=utf8mb4", "root", "", $pdoOptions);
+            bootstrapDatabaseIfEmpty($db);
         } catch (PDOException $e3) {
             http_response_code(500);
-            die("Database connection failed.");
+            die("Database connection failed. Please check database configuration.");
         }
     }
 }

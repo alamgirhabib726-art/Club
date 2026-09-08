@@ -1,0 +1,21 @@
+[phases.setup]
+nixPkgs = [
+    "php82",
+    "php82Extensions.pdo",
+    "php82Extensions.pdo_mysql",
+    "php82Extensions.mysqli",
+    "php82Extensions.mbstring",
+    "php82Extensions.gd",
+    "php82Extensions.bcmath",
+    "mariadb",
+    "bash"
+]
+
+[phases.install]
+cmds = [
+    "mkdir -p /var/lib/mysql /var/run/mysqld htdocs/uploads htdocs/chat/uploads/chat",
+    "chmod -R 777 htdocs/uploads htdocs/chat/uploads 2>/dev/null || true"
+]
+
+[start]
+cmd = "bash run.sh"

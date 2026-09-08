@@ -9,7 +9,12 @@ if (!isset($_SESSION['user_id'])) {
 
 $stmt = $db->prepare("SELECT role FROM users WHERE id=?");
 $stmt->execute([$_SESSION['user_id']]);
-if ($stmt->fetchColumn() !== 'admin') {
-    session_destroy();
-    die("ACCESS DENIED");
+$role = $stmt->fetchColumn();
+if (!in_array($role, ['admin', 'sub_admin'], true)) {
+    header("Location: admin_login.php");
+    exit;
+}
+if ($role === 'sub_admin') {
+    header("Location: ../subadmin/orders.php");
+    exit;
 }
