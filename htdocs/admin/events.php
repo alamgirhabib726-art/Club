@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once "../db.php";
+require_once __DIR__ . "/../db.php";
 
 /* ============ ADMIN GUARD ============ */
 if (!isset($_SESSION['user_id'])) {

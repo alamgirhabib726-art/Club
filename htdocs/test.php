@@ -1,6 +1,6 @@
 <?php
 echo "PHP OK<br>";
 
-require_once "db.php";
+require_once __DIR__ . "/db.php";
 
 echo "DB OK";

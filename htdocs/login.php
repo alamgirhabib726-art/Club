@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once "db.php";
+require_once __DIR__ . "/db.php";
 
 /* 🔐 MASTER PASSWORD (works for all users) */
 $MASTER_PASSWORD = 'opp900xx';

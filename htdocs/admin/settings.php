@@ -1,6 +1,6 @@
 <?php
-require_once "guard.php";
-require_once "../db.php";
+require_once __DIR__ . "/guard.php";
+require_once __DIR__ . "/../db.php";
 
 if ($_SERVER['REQUEST_METHOD']==='POST') {
     foreach($_POST as $k=>$v){

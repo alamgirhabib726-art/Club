@@ -2,6 +2,11 @@
 session_start();
 require_once __DIR__."/db.php";
 
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit;
+}
+
 $stmt = $db->prepare("SELECT coins FROM users WHERE id=? LIMIT 1");
 $stmt->execute([$_SESSION['user_id']]);
 $coins = (float)$stmt->fetchColumn();
