@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 TARGET_PORT="${PORT:-3000}"
 
 # Check if an external MySQL database is provided (Railway / Cloud MySQL)
