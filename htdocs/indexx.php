@@ -236,7 +236,7 @@ body{
 <?php foreach($users as $u): ?>
 <a class="user" href="indexx.php?u=<?= $u['id'] ?>">
 <?php if($u['photo']): ?>
-<img src="../uploads/avatars/<?= htmlspecialchars($u['photo']) ?>">
+<img src="uploads/avatars/<?= htmlspecialchars($u['photo']) ?>">
 <?php else: ?><div class="avatar"></div><?php endif; ?>
 <?= htmlspecialchars($u['name']) ?>
 <?php if($u['unread']>0): ?>
@@ -253,7 +253,7 @@ body{
 <div class="chat-header">
 <a href="indexx.php">✕</a>
 <?php if($chatUser['photo']): ?>
-<img src="../uploads/avatars/<?= htmlspecialchars($chatUser['photo']) ?>" width="28" height="28" style="border-radius:50%">
+<img src="uploads/avatars/<?= htmlspecialchars($chatUser['photo']) ?>" width="28" height="28" style="border-radius:50%">
 <?php endif; ?>
 <?= htmlspecialchars($chatUser['name']) ?>
 </div>

@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $plan
         ]);
 
-        header("Location: premium_payment.php");
+        header("Location: payment.php");
         exit;
     }
 }
