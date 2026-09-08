@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
 }
 
-$settings = $db->query("SELECT * FROM settings")
+$settings = $db->query("SELECT k, v FROM settings")
 ->fetchAll(PDO::FETCH_KEY_PAIR);
 ?>
 <!doctype html><html><body>
