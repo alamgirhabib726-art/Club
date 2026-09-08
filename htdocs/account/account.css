@@ -1,0 +1,244 @@
+/* RESET */
+
+*{
+
+    margin:0;
+
+    padding:0;
+
+    box-sizing:border-box;
+
+    font-family: system-ui, -apple-system, BlinkMacSystemFont;
+
+}
+
+/* BODY */
+
+body{
+
+    background:#0b141a;
+
+    color:#e9edef;
+
+}
+
+/* CONTAINER */
+
+.settings-container{
+
+    max-width:450px;
+
+    margin:0 auto;
+
+    min-height:100vh;
+
+}
+
+/* HEADER */
+
+.header{
+
+    height:56px;
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:0 16px;
+
+}
+
+.header-left{
+
+    display:flex;
+
+    align-items:center;
+
+}
+
+.icon-back{
+
+    font-size:22px;
+
+    margin-right:20px;
+
+    color:#00a884;
+
+}
+
+.header h1{
+
+    font-size:20px;
+
+    font-weight:500;
+
+}
+
+.icon-search{
+
+    font-size:20px;
+
+    color:#8696a0;
+
+}
+
+/* PROFILE */
+
+.profile-section{
+
+    display:flex;
+
+    align-items:center;
+
+    padding:16px;
+
+    gap:14px;
+
+}
+
+.avatar{
+
+    width:64px;
+
+    height:64px;
+
+    border-radius:50%;
+
+    overflow:hidden;
+
+    background:#3b4a54;
+
+}
+
+.avatar img{
+
+    width:100%;
+
+    height:100%;
+
+    object-fit:cover;
+
+}
+
+.profile-info h2{
+
+    font-size:18px;
+
+    font-weight:500;
+
+}
+
+.phone-number{
+
+    font-size:14px;
+
+    color:#8696a0;
+
+    margin-top:2px;
+
+}
+
+.mood-pill{
+
+    display:inline-flex;
+
+    align-items:center;
+
+    padding:4px 12px;
+
+    margin-top:6px;
+
+    border-radius:20px;
+
+    font-size:13px;
+
+    color:#00a884;
+
+    background:rgba(0,168,132,.1);
+
+    border:1px solid #202c33;
+
+}
+
+.mood-icon{
+
+    margin-right:6px;
+
+}
+
+/* GAP */
+
+.section-gap{
+
+    height:10px;
+
+}
+
+/* ITEMS */
+
+.setting-item{
+
+    display:flex;
+
+    align-items:center;
+
+    padding:16px;
+
+    text-decoration:none;
+
+    color:#e9edef;
+
+    transition:background .15s ease;
+
+}
+
+.setting-item:active{
+
+    background:rgba(32,44,51,.6);
+
+}
+
+.item-icon{
+
+    width:30px;
+
+    text-align:center;
+
+    font-size:22px;
+
+    color:#8696a0;
+
+    margin-right:25px;
+
+}
+
+.item-text h3{
+
+    font-size:16px;
+
+    font-weight:400;
+
+}
+
+.item-text p{
+
+    font-size:14px;
+
+    color:#8696a0;
+
+    margin-top:2px;
+
+}
+
+.logout-btn{
+    color:#ef4444;
+    font-size:14px;
+    font-weight:600;
+    text-decoration:none;
+}
+
+.logout-btn:active{
+    opacity:.6;
+}

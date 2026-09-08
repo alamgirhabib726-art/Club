@@ -1,0 +1,10 @@
+{
+  "name": "applet",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "php -S 0.0.0.0:3000 -t htdocs router.php",
+    "start": "php -S 0.0.0.0:3000 -t htdocs router.php",
+    "build": "node -e 'console.log(\"Build complete\")'"
+  }
+}
