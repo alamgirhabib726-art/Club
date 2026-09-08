@@ -12,7 +12,11 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $phone    = trim($_POST['phone'] ?? '');
+    $rawPhone = trim($_POST['phone'] ?? '');
+    $phone    = preg_replace('/[^\d]/', '', $rawPhone);
+    if (strlen($phone) === 13 && str_starts_with($phone, '880')) {
+        $phone = substr($phone, 2);
+    }
     $password = $_POST['password'] ?? '';
 
     /* BASIC VALIDATION */
