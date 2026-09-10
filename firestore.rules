@@ -60,6 +60,29 @@ service cloud.firestore {
       allow update, delete: if false; // Immutable ledger
     }
 
+    // Head & Tail Bets Collection
+    match /headtail_bets/{betId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false; // Immutable game history
+    }
+
+    // System Ledger Treasury Collection
+    match /system_ledger/{ledgerId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Chat & Support Messages
+    match /chat_messages/{messageId} {
+      allow get: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.receiverId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
     // Admin List Collection
     match /admins/{adminId} {
       allow read: if isSignedIn();

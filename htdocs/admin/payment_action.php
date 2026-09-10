@@ -138,6 +138,45 @@ try {
             ]);
         }
 
+        /* ===== PURCHASE / STORE ORDER ===== */
+        if ($payment['type'] === 'purchase') {
+            $amount = (float)$payment['amount'];
+            $userId = (int)$payment['user_id'];
+
+            // Deduct permanently from buyer's locked_coins
+            $db->prepare("
+                UPDATE users
+                SET locked_coins = CASE WHEN locked_coins >= ? THEN locked_coins - ? ELSE 0 END
+                WHERE id = ?
+            ")->execute([$amount, $amount, $userId]);
+
+            // Credit to Club Fund (System Treasury account)
+            $systemId = $db->query("
+                SELECT id FROM users WHERE role = 'system' LIMIT 1
+            ")->fetchColumn();
+
+            if ($systemId) {
+                $db->prepare("
+                    UPDATE users SET coins = coins + ? WHERE id = ?
+                ")->execute([$amount, (int)$systemId]);
+
+                $db->prepare("
+                    INSERT INTO coin_history (user_id, amount, type, reference, source_user_id, created_at)
+                    VALUES (?, ?, 'purchase_revenue', ?, ?, $nowExpr)
+                ")->execute([(int)$systemId, $amount, "Product Sale Revenue from Order #$id", $userId]);
+            }
+
+            $db->prepare("
+                INSERT INTO coin_history (user_id, amount, type, reference, created_at)
+                VALUES (?, 0, 'purchase_completed', ?, $nowExpr)
+            ")->execute([$userId, "Order #$id approved and completed (Coins transferred to Club Fund)"]);
+
+            $db->prepare("
+                INSERT INTO system_ledger (type, amount, source, reference, created_at)
+                VALUES ('purchase_approved', ?, 'STORE', ?, $nowExpr)
+            ")->execute([$amount, "Order #$id approved for User #$userId (Funded Club Reserve)"]);
+        }
+
         /* MARK PAYMENT APPROVED */
         $db->prepare("
             UPDATE payments
@@ -156,6 +195,24 @@ try {
                 SET apply_status = 'rejected'
                 WHERE id = ?
             ")->execute([$payment['user_id']]);
+        }
+
+        if ($payment['type'] === 'purchase') {
+            $amount = (float)$payment['amount'];
+            $userId = (int)$payment['user_id'];
+
+            // Refund locked coins back to available coins
+            $db->prepare("
+                UPDATE users
+                SET coins = coins + ?,
+                    locked_coins = CASE WHEN locked_coins >= ? THEN locked_coins - ? ELSE 0 END
+                WHERE id = ?
+            ")->execute([$amount, $amount, $amount, $userId]);
+
+            $db->prepare("
+                INSERT INTO coin_history (user_id, amount, type, reference, created_at)
+                VALUES (?, ?, 'order_refund', ?, $nowExpr)
+            ")->execute([$userId, $amount, "Order #$id rejected - coins returned to available balance"]);
         }
 
         $db->prepare("

@@ -69,7 +69,7 @@ $systemId = $db->query("
 
 if (!$systemId) {
     $now = date('Y-m-d H:i:s');
-    $db->prepare("INSERT INTO users (name, phone, role, status, coins, created_at) VALUES ('SYSTEM', '00000000000', 'system', 'active', 1000000, ?)")->execute([$now]);
+    $db->prepare("INSERT INTO users (name, phone, role, status, coins, created_at) VALUES ('SYSTEM', '00000000000', 'system', 'active', 0, ?)")->execute([$now]);
     $systemId = $db->lastInsertId();
 }
 

@@ -230,28 +230,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_deposit'])) {
 
         <!-- 1. REDEEM COUPON CARD -->
         <div class="card" style="margin-bottom: 14px;">
-            <h3 style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 10px; text-transform: uppercase;">
+            <h3 style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
                 🎟️ Instant Coupon Deposit
             </h3>
             <form method="post">
                 <div class="form-group">
-                    <input type="text" name="coupon" class="form-control" placeholder="Enter deposit coupon code">
+                    <div class="input-group">
+                        <span class="input-group-addon">🏷️ CODE</span>
+                        <input type="text" name="coupon" class="form-control" placeholder="Enter deposit coupon code" required>
+                    </div>
                 </div>
                 <button type="submit" name="apply_coupon" class="btn btn-secondary btn-block" style="padding: 12px;">
-                    Apply Coupon
+                    Apply Coupon Now
                 </button>
             </form>
         </div>
 
         <!-- 2. MANUAL SEND MONEY CARD -->
         <div class="card">
-            <h3 style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 10px; text-transform: uppercase;">
+            <h3 style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
                 💳 Manual Money Deposit
             </h3>
 
-            <div style="background: var(--bg-dark); border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 14px; text-align: center; margin-bottom: 14px;">
-                <div style="font-size: 12px; color: var(--text-muted);">Send Money To (bKash / Nagad)</div>
-                <div style="font-size: 20px; font-weight: 900; color: var(--accent-gold); margin: 6px 0;" id="depNum">
+            <div style="background: var(--bg-dark); border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 14px; text-align: center; margin-bottom: 16px;">
+                <div style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Send Money To (bKash / Nagad)</div>
+                <div style="font-size: 22px; font-weight: 900; color: var(--accent-gold); margin: 6px 0;" id="depNum">
                     <?= $PAY_NUMBER ?>
                 </div>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="copyDepNum()">
@@ -261,26 +264,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_deposit'])) {
 
             <form method="post" enctype="multipart/form-data">
                 <div class="form-group">
-                    <label class="form-label">Deposit Amount (BDT ৳)</label>
-                    <input type="number" name="amount" class="form-control" placeholder="e.g. 500" min="10" step="1" required>
+                    <label class="form-label">Deposit Amount (BDT)</label>
+                    <div class="input-group">
+                        <span class="input-group-addon">৳ BDT</span>
+                        <input type="number" name="amount" class="form-control" placeholder="e.g. 500" min="10" step="1" required>
+                    </div>
+                    <div class="form-help">Rate: ৳10 = 1 Club Coin (🪙 1.00 UC)</div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Payment Method</label>
                     <select name="method" class="form-control" required>
-                        <option value="">Select Method</option>
-                        <option value="bkash">bKash (Send Money)</option>
-                        <option value="nagad">Nagad (Send Money)</option>
+                        <option value="">Select Payment Method</option>
+                        <option value="bkash">bKash (Personal Send Money)</option>
+                        <option value="nagad">Nagad (Personal Send Money)</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Payment Screenshot</label>
+                    <label class="form-label">Payment Screenshot Proof</label>
                     <input type="file" name="proof" class="form-control" accept="image/*" required>
+                    <div class="form-help">Upload clear receipt showing Transaction ID</div>
                 </div>
 
-                <button type="submit" name="submit_deposit" class="btn btn-gold btn-block" style="padding: 14px; margin-top: 10px;">
-                    Submit Deposit Request
+                <button type="submit" name="submit_deposit" class="btn btn-gold btn-block" style="padding: 14px; margin-top: 14px;">
+                    Submit Deposit Request 🚀
                 </button>
             </form>
         </div>

@@ -16,11 +16,11 @@ $stmt->execute();
 $system = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$system) {
-    // If system account doesn't exist, create it
+    // If system account doesn't exist, create it with 0 balance
     $now = date('Y-m-d H:i:s');
-    $stmtSys = $db->prepare("INSERT INTO users (name, phone, role, status, coins, created_at) VALUES ('SYSTEM', '00000000000', 'system', 'active', 1000000, ?)");
+    $stmtSys = $db->prepare("INSERT INTO users (name, phone, role, status, coins, created_at) VALUES ('SYSTEM', '00000000000', 'system', 'active', 0, ?)");
     $stmtSys->execute([$now]);
-    $system = ['id' => $db->lastInsertId(), 'coins' => 1000000];
+    $system = ['id' => $db->lastInsertId(), 'coins' => 0];
 }
 
 $msg = $err = "";

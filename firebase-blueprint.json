@@ -121,6 +121,108 @@
         }
       },
       "required": ["historyId", "userId", "amount", "type", "createdAt"]
+    },
+    "HeadtailBet": {
+      "title": "HeadtailBet",
+      "description": "Game wager record for Head & Tail",
+      "type": "object",
+      "properties": {
+        "betId": {
+          "type": "string",
+          "description": "Unique bet ID"
+        },
+        "userId": {
+          "type": "string",
+          "description": "User who placed the bet"
+        },
+        "choice": {
+          "type": "string",
+          "description": "User side choice",
+          "enum": ["head", "tail"]
+        },
+        "result": {
+          "type": "string",
+          "description": "Flipped coin outcome",
+          "enum": ["head", "tail"]
+        },
+        "betAmount": {
+          "type": "number",
+          "description": "Amount wagered in coins"
+        },
+        "profit": {
+          "type": "number",
+          "description": "Net coin payout or loss"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of the bet"
+        }
+      },
+      "required": ["betId", "userId", "choice", "result", "betAmount", "profit", "createdAt"]
+    },
+    "SystemLedger": {
+      "title": "SystemLedger",
+      "description": "Master audit trail for club treasury reserve",
+      "type": "object",
+      "properties": {
+        "ledgerId": {
+          "type": "string",
+          "description": "Unique audit log ID"
+        },
+        "type": {
+          "type": "string",
+          "description": "Transaction category (coin_cut, donation, game_win, store, admin)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount credited or debited to treasury"
+        },
+        "source": {
+          "type": "string",
+          "description": "Source module or initiating action"
+        },
+        "reference": {
+          "type": "string",
+          "description": "Reference details"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of entry"
+        }
+      },
+      "required": ["ledgerId", "type", "amount", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Support or direct message document",
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string",
+          "description": "Unique message ID"
+        },
+        "senderId": {
+          "type": "string",
+          "description": "Sender user ID"
+        },
+        "receiverId": {
+          "type": "string",
+          "description": "Recipient user ID"
+        },
+        "message": {
+          "type": "string",
+          "description": "Text message content"
+        },
+        "seen": {
+          "type": "boolean",
+          "description": "Whether message has been seen by recipient"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of message"
+        }
+      },
+      "required": ["messageId", "senderId", "receiverId", "createdAt"]
     }
   },
   "firestore": {
@@ -135,6 +237,18 @@
     "/coin_history/{historyId}": {
       "schema": "CoinHistory",
       "description": "Coin transaction history ledger"
+    },
+    "/headtail_bets/{betId}": {
+      "schema": "HeadtailBet",
+      "description": "Game wager bets collection"
+    },
+    "/system_ledger/{ledgerId}": {
+      "schema": "SystemLedger",
+      "description": "Club treasury audit ledger"
+    },
+    "/chat_messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Direct and support chat messages"
     }
   }
 }

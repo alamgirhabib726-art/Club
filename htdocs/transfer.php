@@ -186,16 +186,29 @@ REDIRECT:
             <form method="post">
                 <div class="form-group">
                     <label class="form-label">Recipient Phone Number</label>
-                    <input type="text" name="phone" class="form-control" placeholder="01XXXXXXXXX" required>
+                    <div class="input-group">
+                        <span class="input-group-addon">📱</span>
+                        <input type="tel" name="phone" class="form-control" placeholder="01XXXXXXXXX" pattern="[0-9]{11}" required>
+                    </div>
+                    <div class="form-help">Enter 11-digit registered member phone number</div>
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">Amount (Coins)</label>
-                    <input type="number" name="coins" class="form-control" step="0.01" min="0.1" placeholder="e.g. 10.00" required>
+                    <label class="form-label">Transfer Amount</label>
+                    <div class="input-group">
+                        <span class="input-group-addon">🪙 UC</span>
+                        <input type="number" name="coins" id="transferCoinsInput" class="form-control" step="0.01" min="0.1" max="<?= max(0.1, (float)$sender['coins']) ?>" placeholder="0.00" required>
+                    </div>
+                    <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('transferCoinsInput').value = '1.00'">1 UC</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('transferCoinsInput').value = '5.00'">5 UC</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('transferCoinsInput').value = '10.00'">10 UC</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('transferCoinsInput').value = '<?= max(0, (float)$sender['coins']) ?>'">MAX</button>
+                    </div>
                 </div>
 
-                <button type="submit" class="btn btn-gold btn-block" style="padding: 14px; margin-top: 10px;">
-                    Send Coins Instantly
+                <button type="submit" class="btn btn-gold btn-block" style="padding: 14px; margin-top: 14px;">
+                    Send Coins Instantly ⚡
                 </button>
             </form>
         </div>

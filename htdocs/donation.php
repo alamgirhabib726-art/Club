@@ -164,12 +164,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <form method="post">
                 <div class="form-group">
-                    <label class="form-label">Donation Amount (Coins)</label>
-                    <input type="number" name="amount" class="form-control" step="0.01" min="0.01" placeholder="e.g. 5.00" required>
+                    <label class="form-label">Donation Amount</label>
+                    <div class="input-group">
+                        <span class="input-group-addon">🪙 UC</span>
+                        <input type="number" name="amount" id="donateAmountInput" class="form-control" step="0.01" min="0.01" max="<?= max(0.01, (float)$user['coins']) ?>" placeholder="0.00" required>
+                    </div>
+                    <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('donateAmountInput').value = '1.00'">1 UC</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('donateAmountInput').value = '5.00'">5 UC</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('donateAmountInput').value = '10.00'">10 UC</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('donateAmountInput').value = '25.00'">25 UC</button>
+                    </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary btn-block" style="padding: 14px; margin-top: 10px;">
-                    Contribute Coins
+                <button type="submit" class="btn btn-primary btn-block" style="padding: 14px; margin-top: 14px;">
+                    Contribute Coins 💚
                 </button>
             </form>
         </div>

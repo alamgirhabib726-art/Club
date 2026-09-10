@@ -285,24 +285,34 @@ function approve_locked_order(PDO $pdo, int $orderId, ?int $adminId = null): arr
             return ['success' => false, 'error' => 'Order already processed by another request.'];
         }
 
-        // Deduct permanently from locked_coins
+        // Deduct permanently from buyer's locked_coins
         $pdo->prepare("
             UPDATE users
             SET locked_coins = CASE WHEN locked_coins >= ? THEN locked_coins - ? ELSE 0 END
             WHERE id = ?
         ")->execute([$amount, $amount, $userId]);
 
-        // Insert coin history
+        // Credit to Club Fund (System Treasury account)
+        $systemId = $pdo->query("SELECT id FROM users WHERE role = 'system' LIMIT 1")->fetchColumn();
+        if ($systemId) {
+            $pdo->prepare("UPDATE users SET coins = coins + ? WHERE id = ?")->execute([$amount, (int)$systemId]);
+            $pdo->prepare("
+                INSERT INTO coin_history (user_id, amount, type, reference, source_user_id, created_at)
+                VALUES (?, ?, 'purchase_revenue', ?, ?, $nowExpr)
+            ")->execute([(int)$systemId, $amount, "Product Sale Revenue from Order #$orderId", $userId]);
+        }
+
+        // Insert coin history for buyer
         $pdo->prepare("
             INSERT INTO coin_history (user_id, amount, type, reference, created_at)
-            VALUES (?, ?, 'purchase_approved', ?, $nowExpr)
-        ")->execute([$userId, -$amount, "Order #$orderId approved and completed"]);
+            VALUES (?, 0, 'purchase_completed', ?, $nowExpr)
+        ")->execute([$userId, "Order #$orderId approved and completed (Coins transferred to Club Fund)"]);
 
         // Insert system ledger
         $pdo->prepare("
             INSERT INTO system_ledger (type, amount, source, reference, created_at)
             VALUES ('purchase_approved', ?, 'STORE', ?, $nowExpr)
-        ")->execute([$amount, "Order #$orderId approved for User #$userId"]);
+        ")->execute([$amount, "Order #$orderId approved for User #$userId (Funded Club Reserve)"]);
 
         $pdo->commit();
         return ['success' => true, 'order_id' => $orderId, 'user_id' => $userId];
@@ -517,21 +527,109 @@ if ($maintenance === 1) {
 }
 
 /* ==================================================
-   DEBT / NEGATIVE BALANCE GLOBAL CONTROL
+   DAILY COIN CUT & GLOBAL DEBT CONTROL ENGINE
 ================================================== */
+
+function process_user_daily_coin_cut(PDO $pdo, array $user): array {
+    if (empty($user['id']) || ($user['role'] ?? '') !== 'user' || empty($user['coin_cycle_start'])) {
+        return $user;
+    }
+
+    $now = time();
+    $cycleStart = strtotime($user['coin_cycle_start']);
+    $lastCutTs = !empty($user['last_coin_cut']) ? strtotime($user['last_coin_cut']) : $cycleStart;
+
+    $daysPassed  = (int)floor(($now - $cycleStart) / 86400);
+    $actualCuts  = (int)floor(($lastCutTs - $cycleStart) / 86400);
+    $pendingCuts = $daysPassed - $actualCuts;
+
+    if ($pendingCuts > 0) {
+        $currentCoins = (float)$user['coins'];
+        $realCut = max(0.0, min($currentCoins, (float)$pendingCuts));
+        $newCutDays = $actualCuts + $pendingCuts;
+
+        $pdo->beginTransaction();
+        try {
+            $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $cutDate = date('Y-m-d H:i:s', strtotime($user['coin_cycle_start'] . " + " . (int)$newCutDays . " days"));
+
+            $pdo->prepare("
+                UPDATE users
+                SET coins = coins - ?,
+                    last_coin_cut = ?
+                WHERE id = ?
+            ")->execute([
+                $pendingCuts,
+                $cutDate,
+                $user['id']
+            ]);
+
+            if ($realCut > 0) {
+                $systemId = (int)$pdo->query("SELECT id FROM users WHERE role='system' LIMIT 1")->fetchColumn();
+                if ($systemId) {
+                    $pdo->prepare("UPDATE users SET coins = coins + ? WHERE id = ?")->execute([$realCut, $systemId]);
+                    $pdo->prepare("
+                        INSERT INTO coin_history (user_id, amount, type, reference, source_user_id, source_name, source_number, created_at)
+                        VALUES (?, ?, 'credit', 'User Daily Coin Cut', ?, ?, ?, " . ($driver === 'sqlite' ? "datetime('now')" : "NOW()") . ")
+                    ")->execute([
+                        $systemId,
+                        $realCut,
+                        $user['id'],
+                        $user['name'] ?? '',
+                        $user['phone'] ?? ''
+                    ]);
+
+                    $pdo->prepare("
+                        INSERT INTO system_ledger (type, amount, source, reference, created_at)
+                        VALUES ('coin_cut', ?, 'auto_cycle', ?, " . ($driver === 'sqlite' ? "datetime('now')" : "NOW()") . ")
+                    ")->execute([
+                        $realCut,
+                        'User ID: ' . $user['id']
+                    ]);
+                }
+            }
+
+            $pdo->prepare("
+                INSERT INTO coin_history (user_id, amount, type, reference, source_user_id, source_name, source_number, created_at)
+                VALUES (?, ?, 'debit', 'Daily Coin Cycle Fee', ?, ?, ?, " . ($driver === 'sqlite' ? "datetime('now')" : "NOW()") . ")
+            ")->execute([
+                $user['id'],
+                -$pendingCuts,
+                $user['id'],
+                $user['name'] ?? '',
+                $user['phone'] ?? ''
+            ]);
+
+            $pdo->commit();
+            $user['coins'] -= $pendingCuts;
+            $user['last_coin_cut'] = $cutDate;
+
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log("GLOBAL AUTO CUT FAILED: " . $e->getMessage());
+        }
+    }
+
+    return $user;
+}
 
 if (!empty($_SESSION['user_id'])) {
 
     $stmt = $db->prepare("
-        SELECT coins, role
+        SELECT id, name, phone, coins, role, status, apply_status, coin_cycle_start, last_coin_cut
         FROM users
         WHERE id = ?
         LIMIT 1
     ");
     $stmt->execute([$_SESSION['user_id']]);
-    $userState = $stmt->fetch();
+    $userState = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($userState && $userState['role'] === 'user') {
+
+        // Auto process daily coin deduction globally
+        $userState = process_user_daily_coin_cut($db, $userState);
 
         $coins = (float)$userState['coins'];
         $isDebt = ($coins < 0);
@@ -544,6 +642,7 @@ if (!empty($_SESSION['user_id'])) {
           - account.php
           - loan.php
           - logout.php
+          - avatar.php
         */
 
         $allowedPages = [

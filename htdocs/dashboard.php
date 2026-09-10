@@ -44,106 +44,12 @@ if ($user['status'] !== 'active' && $user['status'] !== 'premium') {
     exit;
 }
 
-/* ================= COIN AUTO CUT ENGINE ================= */
+/* ================= COIN AUTO CUT ENGINE & TIMER ================= */
 $now = time();
+$user = process_user_daily_coin_cut($db, $user);
+$balances = get_user_balances($db, (int)$user['id']);
 
-if ($user['role'] === 'user' && !empty($user['coin_cycle_start'])) {
-
-    $cycleStart = strtotime($user['coin_cycle_start']);
-    $lastCutTs = $user['last_coin_cut']
-        ? strtotime($user['last_coin_cut'])
-        : $cycleStart;
-
-    $daysPassed  = floor(($now - $cycleStart) / 86400);
-    $actualCuts  = floor(($lastCutTs - $cycleStart) / 86400);
-    $pendingCuts = $daysPassed - $actualCuts;
-
-    if ($pendingCuts > 0) {
-        $currentCoins = (float)$user['coins'];
-        $realCut = max(0, min($currentCoins, $pendingCuts));
-        $newCutDays = $actualCuts + $pendingCuts;
-
-        $db->beginTransaction();
-        try {
-            $cutDate = date('Y-m-d H:i:s', strtotime($user['coin_cycle_start'] . " + " . (int)$newCutDays . " days"));
-            $db->prepare("
-                UPDATE users
-                SET coins = coins - ?,
-                    last_coin_cut = ?
-                WHERE id = ?
-            ")->execute([
-                $pendingCuts,
-                $cutDate,
-                $user['id']
-            ]);
-
-            if ($realCut > 0) {
-                $systemId = (int)$db->query("
-                    SELECT id FROM users WHERE role='system' LIMIT 1
-                ")->fetchColumn();
-
-                if ($systemId) {
-                    $db->prepare("
-                        UPDATE users
-                        SET coins = coins + ?
-                        WHERE id = ?
-                    ")->execute([$realCut, $systemId]);
-
-                    $db->prepare("
-                        INSERT INTO coin_history
-                            (user_id, amount, type, reference,
-                             source_user_id, source_name, source_number)
-                        VALUES
-                            (?, ?, 'credit', 'User Daily Coin Cut', ?, ?, ?)
-                    ")->execute([
-                        $systemId,
-                        $realCut,
-                        $user['id'],
-                        $user['name'],
-                        $user['phone']
-                    ]);
-
-                    $db->prepare("
-                        INSERT INTO system_ledger
-                            (type, amount, source, reference)
-                        VALUES
-                            ('coin_cut', ?, 'auto_cycle', ?)
-                    ")->execute([
-                        $realCut,
-                        'User ID: ' . $user['id']
-                    ]);
-                }
-            }
-
-            $db->prepare("
-                INSERT INTO coin_history
-                    (user_id, amount, type, reference,
-                     source_user_id, source_name, source_number)
-                VALUES
-                    (?, ?, 'debit', 'Daily Coin Cycle Fee', ?, ?, ?)
-            ")->execute([
-                $user['id'],
-                -$pendingCuts,
-                $user['id'],
-                $user['name'],
-                $user['phone']
-            ]);
-
-            $db->commit();
-            $user['coins'] -= $pendingCuts;
-            $balances['coins'] -= $pendingCuts;
-            $balances['total_coins'] -= $pendingCuts;
-
-        } catch (Exception $e) {
-            $db->rollBack();
-            error_log("AUTO CUT FAILED: " . $e->getMessage());
-        }
-    }
-}
-
-/* ================= NEXT CUT TIMER ================= */
 $hours = $minutes = 0;
-
 if ($user['role'] === 'user' && !empty($user['coin_cycle_start'])) {
     $start = strtotime($user['coin_cycle_start']);
     $nextCutTs = $start + (floor(($now - $start) / 86400) + 1) * 86400;
