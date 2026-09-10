@@ -53,6 +53,8 @@ if ($payment['status'] !== 'pending') {
 $db->beginTransaction();
 
 try {
+    $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
+    $nowExpr = ($driver === 'sqlite') ? "datetime('now')" : "NOW()";
 
     /* ===============================
        APPROVE
@@ -61,27 +63,23 @@ try {
 
         /* ===== APPLY PAYMENT ===== */
         if ($payment['type'] === 'apply') {
-
-            /* ACTIVATE USER (CORRECT 24H LOGIC) */
             $db->prepare("
                 UPDATE users
                 SET
                     status = 'active',
                     apply_status = 'approved',
                     coins = COALESCE(coins,0) + 5,
-                    coin_cycle_start = NOW(),
+                    coin_cycle_start = $nowExpr,
                     last_coin_cut = NULL
                 WHERE id = ?
             ")->execute([$payment['user_id']]);
 
-            /* USER LEDGER */
             $db->prepare("
                 INSERT INTO coin_history
-                (user_id, amount, type, reference, created_at)
-                VALUES (?, 5, 'apply_bonus', 'Application Approved', NOW())
+                (user_id, amount, type, source, created_at)
+                VALUES (?, 5, 'apply_bonus', 'Application Approved', $nowExpr)
             ")->execute([$payment['user_id']]);
 
-            /* SYSTEM +10 COINS */
             $systemId = $db->query("
                 SELECT id
                 FROM users
@@ -99,15 +97,14 @@ try {
 
                 $db->prepare("
                     INSERT INTO coin_history
-                    (user_id, amount, type, reference, created_at)
-                    VALUES (?, 10, 'registration_income', 'User Registration Approved', NOW())
+                    (user_id, amount, type, source, created_at)
+                    VALUES (?, 10, 'registration_income', 'User Registration Approved', $nowExpr)
                 ")->execute([$systemId]);
             }
         }
 
         /* ===== PREMIUM ===== */
         if ($payment['type'] === 'premium') {
-
             $db->prepare("
                 UPDATE users
                 SET status = 'premium'
@@ -116,28 +113,25 @@ try {
 
             $db->prepare("
                 INSERT INTO coin_history
-                (user_id, amount, type, reference, created_at)
-                VALUES (?, 0, 'premium_upgrade', 'Premium Approved', NOW())
+                (user_id, amount, type, source, created_at)
+                VALUES (?, 0, 'premium_upgrade', 'Premium Approved', $nowExpr)
             ")->execute([$payment['user_id']]);
         }
 
         /* ===== DEPOSIT ===== */
         if ($payment['type'] === 'deposit') {
+            $coins = (float)$payment['amount'] / 10;
 
-            $coins = $payment['amount'] / 10;
-
-            /* ADD USER COINS */
             $db->prepare("
                 UPDATE users
                 SET coins = coins + ?
                 WHERE id = ?
             ")->execute([$coins, $payment['user_id']]);
 
-            /* USER LEDGER */
             $db->prepare("
                 INSERT INTO coin_history
-                (user_id, amount, type, reference, created_at)
-                VALUES (?, ?, 'deposit', 'Deposit Approved', NOW())
+                (user_id, amount, type, source, created_at)
+                VALUES (?, ?, 'deposit', 'Deposit Approved', $nowExpr)
             ")->execute([
                 $payment['user_id'],
                 $coins
@@ -156,7 +150,6 @@ try {
        REJECT
     ================================ */
     if ($action === 'reject') {
-
         if ($payment['type'] === 'apply') {
             $db->prepare("
                 UPDATE users
@@ -172,18 +165,12 @@ try {
         ")->execute([$id]);
     }
 
-    /* ===============================
-       COMMIT
-    ================================ */
     $db->commit();
 
 } catch (Exception $e) {
     $db->rollBack();
-    die("ACTION FAILED");
+    die("ACTION FAILED: " . $e->getMessage());
 }
 
-/* ===============================
-   REDIRECT
-================================ */
 header("Location: payments.php");
 exit;

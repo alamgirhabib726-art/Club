@@ -1,45 +1,42 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN PAYMENTS MANAGEMENT
+ */
 
-/* ================= ADMIN CHECK ================= */
-if (!isset($_SESSION['user_id'])) {
-    header("Location: admin_login.php");
-    exit;
-}
-
-$stmt = $db->prepare("SELECT role FROM users WHERE id = ?");
-$stmt->execute([$_SESSION['user_id']]);
-$role = $stmt->fetchColumn();
-
-if ($role !== 'admin') {
-    die("ACCESS DENIED");
-}
+require_once __DIR__ . "/guard.php";
 
 /* ================= FILTER ================= */
-$type = $_GET['type'] ?? 'all';
+$filterType = $_GET['type'] ?? 'all';
+$filterStatus = $_GET['status'] ?? 'all';
 
-/* REMOVE DONATION PERMANENTLY */
-$where  = "WHERE p.type != 'donation'";
+$where = "WHERE 1=1";
 $params = [];
 
-if ($type !== 'all') {
+if ($filterType !== 'all') {
     $where .= " AND p.type = ?";
-    $params[] = $type;
+    $params[] = $filterType;
+}
+
+if ($filterStatus !== 'all') {
+    $where .= " AND p.status = ?";
+    $params[] = $filterStatus;
 }
 
 /* ================= FETCH PAYMENTS ================= */
 $stmt = $db->prepare("
     SELECT
         p.id,
+        p.user_id,
         p.type,
         p.amount,
         p.status,
         p.created_at,
         p.proof,
         p.method,
-        u.name,
-        u.phone
+        p.source,
+        u.name as user_name,
+        u.phone as user_phone,
+        u.coins as user_coins
     FROM payments p
     JOIN users u ON u.id = p.user_id
     $where
@@ -47,279 +44,175 @@ $stmt = $db->prepare("
 ");
 $stmt->execute($params);
 $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Metrics
+$pendingCount = 0;
+$pendingSum = 0;
+$approvedSum = 0;
+foreach ($payments as $p) {
+    if ($p['status'] === 'pending') {
+        $pendingCount++;
+        $pendingSum += (float)$p['amount'];
+    } elseif ($p['status'] === 'approved') {
+        $approvedSum += (float)$p['amount'];
+    }
+}
+
+$pageTitle = 'Payments Queue';
+$activeNav = 'payments.php';
+$pageSubtitle = 'Review, approve, and verify incoming member deposits, purchase orders, and VIP upgrades.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Payments • Admin</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 
-<style>
-:root{
-    --bg:#020617;
-    --panel:#0b1020;
-    --card:#0f172a;
-    --border:#1f2937;
-    --text:#e5e7eb;
-    --muted:#94a3b8;
-
-    --green:#22c55e;
-    --red:#ef4444;
-    --yellow:#facc15;
-}
-
-*{
-    box-sizing:border-box;
-    font-family:system-ui;
-}
-
-body{
-    margin:0;
-    background:radial-gradient(circle at top,#020617,#000);
-    color:var(--text);
-    padding:20px;
-}
-
-/* ================= HEADER ================= */
-h2{
-    margin:0 0 16px;
-    font-size:22px;
-    font-weight:900;
-}
-
-/* ================= FILTER ================= */
-.filter{
-    margin-bottom:16px;
-}
-.filter a{
-    margin-right:16px;
-    text-decoration:none;
-    font-weight:800;
-    font-size:14px;
-    color:var(--muted);
-    padding-bottom:6px;
-}
-.filter a.active{
-    color:var(--yellow);
-    border-bottom:2px solid var(--yellow);
-}
-
-/* ================= TABLE WRAP (FIX SCROLL) ================= */
-.table-scroll{
-    overflow-x:auto;            /* 🔥 FIX */
-    -webkit-overflow-scrolling:touch;
-}
-
-.table-wrap{
-    min-width:1100px;           /* 🔥 FORCE WIDTH */
-    background:linear-gradient(135deg,#0f172a,#020617);
-    border:1px solid var(--border);
-    border-radius:22px;
-    overflow:hidden;
-    box-shadow:0 30px 60px rgba(0,0,0,.7);
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-}
-
-/* ================= TABLE ================= */
-th{
-    background:#020617;
-    padding:14px 16px;
-    font-size:12px;
-    text-transform:uppercase;
-    letter-spacing:.5px;
-    color:var(--muted);
-    border-bottom:1px solid var(--border);
-    text-align:left;
-    white-space:nowrap;
-}
-
-td{
-    padding:16px;
-    font-size:14px;
-    border-bottom:1px solid var(--border);
-    white-space:nowrap;
-}
-
-tr:hover{
-    background:rgba(255,255,255,.03);
-}
-
-tr:last-child td{
-    border-bottom:none;
-}
-
-/* ================= BADGES ================= */
-.badge{
-    padding:6px 12px;
-    border-radius:999px;
-    font-size:11px;
-    font-weight:900;
-}
-
-.pending{
-    background:rgba(250,204,21,.18);
-    color:var(--yellow);
-}
-.approved{
-    background:rgba(34,197,94,.2);
-    color:var(--green);
-}
-.rejected{
-    background:rgba(239,68,68,.2);
-    color:var(--red);
-}
-
-/* ================= ACTIONS ================= */
-.actions{
-    display:flex;
-    gap:12px;
-}
-
-.btn{
-    padding:8px 16px;
-    border-radius:12px;
-    text-decoration:none;
-    font-size:13px;
-    font-weight:900;
-    min-width:90px;
-    text-align:center;
-}
-
-.approve{
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-    color:#022c22;
-}
-.reject{
-    background:linear-gradient(135deg,#ef4444,#dc2626);
-    color:#fff;
-}
-
-/* ================= PROOF ================= */
-.proof img{
-    height:44px;
-    border-radius:10px;
-    border:1px solid var(--border);
-}
-.no-proof{
-    color:var(--red);
-    font-weight:900;
-}
-
-/* ================= MISC ================= */
-.small{
-    font-size:12px;
-    color:var(--muted);
-}
-
-@media (max-width: 768px){
-    body{ padding:12px; }
-    h2{ font-size:20px; margin-bottom:12px; }
-    .filter{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
-    .filter a{ margin-right:0; padding:6px 12px; background:#0f172a; border-radius:8px; font-size:13px; }
-    .filter a.active{ border-bottom:none; background:var(--yellow); color:#020617; }
-}
-</style>
-</head>
-
-<body>
-
-<h2>💳 Payments</h2>
-
-<div class="filter">
-    <a class="<?= $type==='all'?'active':'' ?>" href="?type=all">All</a>
-    <a class="<?= $type==='apply'?'active':'' ?>" href="?type=apply">Apply</a>
-    <a class="<?= $type==='deposit'?'active':'' ?>" href="?type=deposit">Deposit</a>
-    <a class="<?= $type==='purchase'?'active':'' ?>" href="?type=purchase">Purchase</a>
-</div>
-
-<div class="table-scroll">
-<div class="table-wrap">
-<table>
-<tr>
-    <th>ID</th>
-    <th>User</th>
-    <th>Phone</th>
-    <th>Type</th>
-    <th>Amount (BDT)</th>
-    <th>Method</th>
-    <th>Proof</th>
-    <th>Status</th>
-    <th>Date</th>
-    <th>Action</th>
-</tr>
-
-<?php if (!$payments): ?>
-<tr>
-    <td colspan="10">No payments found</td>
-</tr>
+<?php if (isset($_GET['approved'])): ?>
+    <div class="admin-alert admin-alert-success">
+        <span>✅</span>
+        <div>Payment has been approved and credited successfully.</div>
+    </div>
 <?php endif; ?>
 
-<?php foreach ($payments as $p): ?>
+<?php if (isset($_GET['rejected'])): ?>
+    <div class="admin-alert admin-alert-danger">
+        <span>❌</span>
+        <div>Payment has been marked as rejected.</div>
+    </div>
+<?php endif; ?>
 
-<?php
-/* FIX PURCHASE AMOUNT */
-$amountBDT = ($p['type'] === 'purchase')
-    ? $p['amount'] * 10
-    : $p['amount'];
-?>
+<!-- FILTER & QUICK STATS -->
+<div class="admin-card" style="padding: 18px 22px;">
+    <form method="get" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <label class="admin-label" style="margin: 0; align-self: center;">Filter:</label>
+            <select name="type" class="admin-select" style="max-width: 150px;">
+                <option value="all" <?= $filterType === 'all' ? 'selected' : '' ?>>All Types</option>
+                <option value="deposit" <?= $filterType === 'deposit' ? 'selected' : '' ?>>Deposit</option>
+                <option value="apply" <?= $filterType === 'apply' ? 'selected' : '' ?>>Application</option>
+                <option value="premium" <?= $filterType === 'premium' ? 'selected' : '' ?>>VIP / Premium</option>
+                <option value="purchase" <?= $filterType === 'purchase' ? 'selected' : '' ?>>Purchase</option>
+                <option value="donation" <?= $filterType === 'donation' ? 'selected' : '' ?>>Donation</option>
+            </select>
 
-<tr>
-    <td><?= (int)$p['id'] ?></td>
-    <td><?= htmlspecialchars($p['name']) ?></td>
-    <td><?= htmlspecialchars($p['phone']) ?></td>
-    <td><?= strtoupper($p['type']) ?></td>
-    <td>৳<?= number_format($amountBDT,2) ?></td>
-    <td><?= $p['method'] ?: '—' ?></td>
+            <select name="status" class="admin-select" style="max-width: 150px;">
+                <option value="all" <?= $filterStatus === 'all' ? 'selected' : '' ?>>All Statuses</option>
+                <option value="pending" <?= $filterStatus === 'pending' ? 'selected' : '' ?>>Pending Only</option>
+                <option value="approved" <?= $filterStatus === 'approved' ? 'selected' : '' ?>>Approved</option>
+                <option value="rejected" <?= $filterStatus === 'rejected' ? 'selected' : '' ?>>Rejected</option>
+            </select>
 
-    <td class="proof">
-        <?php if (!empty($p['proof'])):
-            $proofPath = "../uploads/".$p['type']."/".$p['proof']; ?>
-            <a href="<?= htmlspecialchars($proofPath) ?>" target="_blank">
-                <img src="<?= htmlspecialchars($proofPath) ?>">
-            </a>
-        <?php else: ?>
-            <span class="no-proof">No Proof</span>
-        <?php endif; ?>
-    </td>
+            <button type="submit" class="admin-btn admin-btn-primary">Apply</button>
+            <?php if ($filterType !== 'all' || $filterStatus !== 'all'): ?>
+                <a href="payments.php" class="admin-btn admin-btn-secondary">Clear</a>
+            <?php endif; ?>
+        </div>
 
-    <td>
-        <span class="badge <?= $p['status'] ?>">
-            <?= strtoupper($p['status']) ?>
-        </span>
-    </td>
-
-    <td class="small">
-        <?= date("d M Y, h:i A", strtotime($p['created_at'])) ?>
-    </td>
-
-    <td>
-        <?php if ($p['status'] === 'pending'): ?>
-            <div class="actions">
-                <?php if (!empty($p['proof'])): ?>
-                    <a class="btn approve"
-                       href="payment_action.php?id=<?= $p['id'] ?>&action=approve">
-                        Approve
-                    </a>
-                <?php endif; ?>
-                <a class="btn reject"
-                   href="payment_action.php?id=<?= $p['id'] ?>&action=reject">
-                    Reject
-                </a>
-            </div>
-        <?php else: ?>
-            —
-        <?php endif; ?>
-    </td>
-</tr>
-<?php endforeach; ?>
-</table>
-</div>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <span class="admin-badge admin-badge-warning"><?= $pendingCount ?> Pending (৳ <?= number_format($pendingSum, 2) ?>)</span>
+            <span class="admin-badge admin-badge-success">Approved: ৳ <?= number_format($approvedSum, 2) ?></span>
+        </div>
+    </form>
 </div>
 
-</body>
-</html>
+<!-- PAYMENTS LIST -->
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">💳 Transactions Records (<?= count($payments) ?>)</h2>
+    </div>
+
+    <?php if (empty($payments)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No payment records found.</p>
+    <?php else: ?>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Member</th>
+                        <th>Type</th>
+                        <th>Amount</th>
+                        <th>Method / Proof</th>
+                        <th>Status</th>
+                        <th>Submitted At</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($payments as $p): ?>
+                        <tr>
+                            <td>
+                                <strong style="color: #ffffff;">#<?= $p['id'] ?></strong>
+                            </td>
+                            <td>
+                                <strong style="color: #ffffff;"><?= htmlspecialchars($p['user_name']) ?></strong>
+                                <div style="font-size: 12px; color: var(--admin-text-dim);">📱 <?= htmlspecialchars($p['user_phone']) ?></div>
+                                <div style="font-size: 11px; color: var(--admin-gold);">🪙 <?= number_format($p['user_coins'], 2) ?> UC</div>
+                            </td>
+                            <td>
+                                <span class="admin-badge admin-badge-info" style="text-transform: uppercase;">
+                                    <?= htmlspecialchars($p['type']) ?>
+                                </span>
+                                <?php if (!empty($p['source'])): ?>
+                                    <div style="font-size: 11px; color: var(--admin-text-dim); margin-top: 2px;">
+                                        <?= htmlspecialchars($p['source']) ?>
+                                    </div>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <strong style="font-size: 15px; color: #ffffff;">৳ <?= number_format($p['amount'], 2) ?></strong>
+                            </td>
+                            <td>
+                                <?php if (!empty($p['method'])): ?>
+                                    <div style="font-size: 12px; font-weight: 700; color: var(--admin-text-muted);">
+                                        <?= htmlspecialchars(strtoupper($p['method'])) ?>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <?php if (!empty($p['proof'])): ?>
+                                    <div style="margin-top: 4px;">
+                                        <a href="../uploads/<?= htmlspecialchars($p['proof']) ?>" target="_blank" class="admin-btn admin-btn-sm admin-btn-secondary" style="font-size: 11px; padding: 3px 8px;">
+                                            🖼️ View Proof
+                                        </a>
+                                    </div>
+                                <?php else: ?>
+                                    <span style="font-size: 11px; color: var(--admin-text-dim);">No proof file</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php
+                                    $st = strtolower($p['status']);
+                                    $badge = ($st === 'approved') ? 'admin-badge-success' : (($st === 'pending') ? 'admin-badge-warning' : 'admin-badge-danger');
+                                ?>
+                                <span class="admin-badge <?= $badge ?>"><?= strtoupper($st) ?></span>
+                            </td>
+                            <td>
+                                <span style="font-size: 12px; color: var(--admin-text-muted);">
+                                    <?= date("d M Y • h:i A", strtotime($p['created_at'])) ?>
+                                </span>
+                            </td>
+                            <td style="text-align: right;">
+                                <?php if ($p['status'] === 'pending'): ?>
+                                    <div style="display: inline-flex; gap: 6px;">
+                                        <form method="post" action="approve_payment.php" style="display:inline;" onsubmit="return confirm('Approve payment of ৳<?= $p['amount'] ?> for <?= htmlspecialchars($p['user_name']) ?>?')">
+                                            <input type="hidden" name="payment_id" value="<?= $p['id'] ?>">
+                                            <button type="submit" class="admin-btn admin-btn-sm admin-btn-success">
+                                                ✅ Approve
+                                            </button>
+                                        </form>
+
+                                        <a href="reject.php?id=<?= $p['id'] ?>" class="admin-btn admin-btn-sm admin-btn-danger" onclick="return confirm('Reject this payment?')">
+                                            ❌ Reject
+                                        </a>
+                                    </div>
+                                <?php else: ?>
+                                    <span style="font-size: 12px; color: var(--admin-text-dim);">Processed</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

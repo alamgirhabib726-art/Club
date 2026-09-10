@@ -1,50 +1,84 @@
 <?php
-require_once __DIR__ . "/db.php";
+/**
+ * UNMOOR CLUB - TOPUP / BALANCE RECHARGE
+ */
+
 session_start();
+require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
     exit;
 }
 
-$methods = require __DIR__ . "/config/payment_methods.php";
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $amount = (float)($_POST['amount'] ?? 0);
+    $method = trim($_POST['method'] ?? '');
+
+    if ($amount < 50) {
+        $error = "Minimum top-up amount is ৳50.";
+    } elseif (!in_array($method, ['bkash', 'nagad', 'rocket'])) {
+        $error = "Please select a valid payment method.";
+    } else {
+        $_SESSION['topup_amount'] = $amount;
+        $_SESSION['topup_method'] = $method;
+        header("Location: topup_invoice.php");
+        exit;
+    }
+}
 ?>
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Top Up Balance</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body{font-family:system-ui;background:#f5f6fa}
-.card{max-width:420px;margin:40px auto;background:#fff;padding:20px;border-radius:16px}
-input,select,button{
-    width:100%;padding:14px;margin-top:12px;
-    border-radius:12px;border:1px solid #e5e7eb
-}
-button{background:#7c3aed;color:#fff;font-weight:600;border:none}
-</style>
+    <meta charset="UTF-8">
+    <title>Top Up Balance • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+    <div class="page-wrap">
+        
+        <?= render_page_header("Top Up Balance", "/dashboard.php") ?>
 
-<div class="card">
-<h3>➕ Balance Top-Up</h3>
+        <div class="card">
+            <h3 style="font-size: 16px; font-weight: 900; color: #ffffff; margin-bottom: 12px;">
+                💳 Add Funds to Account
+            </h3>
 
-<form method="post" action="topup_invoice.php">
-    <input type="number" name="amount" placeholder="এমাউন্ট লিখুন (BDT)" required min="50">
+            <?php if ($error): ?>
+                <div class="alert alert-danger" style="margin-bottom: 14px;">
+                    <?= htmlspecialchars($error) ?>
+                </div>
+            <?php endif; ?>
 
-    <select name="method" required>
-        <option value="">পেমেন্ট মেথড নির্বাচন করুন</option>
-        <?php foreach($methods as $key=>$m): ?>
-            <option value="<?=$key?>"><?=$m['name']?></option>
-        <?php endforeach; ?>
-    </select>
+            <form method="post">
+                <div class="form-group">
+                    <label class="form-label">Top-up Amount (BDT ৳)</label>
+                    <input type="number" name="amount" class="form-control" placeholder="Min ৳50" min="50" step="1" required>
+                </div>
 
-    <button>Continue</button>
-</form>
+                <div class="form-group">
+                    <label class="form-label">Payment Method</label>
+                    <select name="method" class="form-control" required>
+                        <option value="">-- Select Payment Method --</option>
+                        <option value="bkash">bKash (Personal)</option>
+                        <option value="nagad">Nagad (Personal)</option>
+                        <option value="rocket">Rocket (Personal)</option>
+                    </select>
+                </div>
 
-<a href="dashboard.php">← Back</a>
-</div>
+                <button type="submit" class="btn btn-gold btn-block" style="padding: 14px; margin-top: 10px;">
+                    Continue to Payment Invoice ›
+                </button>
+            </form>
+        </div>
 
+        <?= render_support_widget() ?>
+
+    </div>
+
+    <?php require_once __DIR__ . "/bottom_nav.php"; ?>
 </body>
 </html>

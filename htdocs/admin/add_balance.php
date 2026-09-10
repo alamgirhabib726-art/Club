@@ -1,117 +1,161 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN BALANCE & COIN ADJUSTMENT ENGINE
+ */
 
-/* ADMIN CHECK */
-if (!isset($_SESSION['user_id'])) die("NO ACCESS");
-
-$stmt = $db->prepare("SELECT role FROM users WHERE id=?");
-$stmt->execute([$_SESSION['user_id']]);
-if ($stmt->fetchColumn() !== 'admin') {
-    die("ADMIN ONLY");
-}
+require_once __DIR__ . "/guard.php";
 
 $msg = '';
-$error = '';
+$err = '';
+
+$prefillPhone = trim($_GET['phone'] ?? '');
+$prefillUserId = (int)($_GET['user_id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $phone    = trim($_POST['phone'] ?? '');
+    $userId   = (int)($_POST['user_id'] ?? 0);
+    $currency = $_POST['currency'] ?? 'coins'; // 'coins' or 'balance'
+    $action   = $_POST['action'] ?? 'add'; // 'add' or 'deduct'
+    $amount   = (float)($_POST['amount'] ?? 0);
+    $note     = trim($_POST['note'] ?? '');
 
-    $phone  = trim($_POST['phone'] ?? '');
-    $amount = (float)($_POST['amount'] ?? 0);
-    $note   = trim($_POST['note'] ?? '');
-
-    if (!preg_match('/^\d{10,11}$/', $phone)) {
-        $error = "Invalid phone number";
-    } elseif ($amount <= 0) {
-        $error = "Amount must be greater than 0";
+    if ($amount <= 0) {
+        $err = "Amount must be greater than zero.";
     } else {
-
-        $stmt = $db->prepare("SELECT id FROM users WHERE phone=?");
-        $stmt->execute([$phone]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user = null;
+        if ($userId > 0) {
+            $stmt = $db->prepare("SELECT * FROM users WHERE id=? LIMIT 1");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        } elseif ($phone !== '') {
+            $stmt = $db->prepare("SELECT * FROM users WHERE phone=? LIMIT 1");
+            $stmt->execute([$phone]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
 
         if (!$user) {
-            $error = "User not found";
+            $err = "Specified member could not be found.";
         } else {
+            $delta = ($action === 'deduct') ? -$amount : $amount;
+            $column = ($currency === 'balance') ? 'balance' : 'coins';
 
-            /* ADD BALANCE */
-            $db->prepare("
-                UPDATE users SET balance = balance + ?
-                WHERE id = ?
-            ")->execute([$amount, $user['id']]);
+            if ($action === 'deduct' && (float)$user[$column] < $amount) {
+                $err = "User only has " . number_format($user[$column], 2) . " " . ($currency === 'balance' ? 'BDT' : 'UC') . ". Cannot deduct " . number_format($amount, 2);
+            } else {
+                $db->beginTransaction();
+                try {
+                    $stmt = $db->prepare("UPDATE users SET $column = $column + ? WHERE id = ?");
+                    $stmt->execute([$delta, $user['id']]);
 
-            /* LOG */
-            $db->prepare("
-                INSERT INTO admin_balance_logs
-                (admin_id, user_id, amount, note)
-                VALUES (?,?,?,?)
-            ")->execute([
-                $_SESSION['user_id'],
-                $user['id'],
-                $amount,
-                $note
-            ]);
+                    if ($currency === 'coins') {
+                        $stmt = $db->prepare("
+                            INSERT INTO coin_history (user_id, amount, source, created_at)
+                            VALUES (?, ?, ?, datetime('now'))
+                        ");
+                        $stmt->execute([$user['id'], $delta, ($action === 'add' ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT')]);
+                    }
 
-            $msg = "✅ ৳{$amount} added successfully";
+                    $stmt = $db->prepare("
+                        INSERT INTO admin_balance_logs (admin_id, user_id, amount, note, created_at)
+                        VALUES (?, ?, ?, ?, datetime('now'))
+                    ");
+                    $memo = "[$currency " . strtoupper($action) . "] " . ($note ?: 'Admin adjustment');
+                    $stmt->execute([$admin['id'], $user['id'], $delta, $memo]);
+
+                    try {
+                        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
+                           ->execute([$admin['id'], "Adjusted user #{$user['id']} $column by $delta"]);
+                    } catch (Throwable $t) {}
+
+                    $db->commit();
+                    $msg = "Successfully " . ($action === 'add' ? 'credited' : 'debited') . " " . number_format($amount, 2) . " " . ($currency === 'balance' ? 'BDT' : 'UC') . " for " . htmlspecialchars($user['name']);
+                } catch (Throwable $e) {
+                    $db->rollBack();
+                    $err = "Adjustment error: " . $e->getMessage();
+                }
+            }
         }
     }
 }
+
+/* FETCH RECENT USERS FOR QUICK SELECTION */
+$users = $db->query("SELECT id, name, phone, coins, balance FROM users ORDER BY id DESC LIMIT 150")->fetchAll(PDO::FETCH_ASSOC);
+
+$pageTitle = 'Adjust Member Balance';
+$activeNav = 'add_balance.php';
+$pageSubtitle = 'Safely inject or deduct club coins and fiat BDT balance from member accounts.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Add Balance • Admin</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body{font-family:system-ui;background:#f6f7fb}
-.card{
-  max-width:420px;
-  margin:40px auto;
-  background:#fff;
-  padding:20px;
-  border-radius:18px;
-  box-shadow:0 20px 40px rgba(0,0,0,.15)
-}
-input,textarea{
-  width:100%;
-  padding:14px;
-  margin-bottom:14px;
-  border:none;
-  border-radius:12px;
-  background:#f2f2f2
-}
-button{
-  width:100%;
-  padding:14px;
-  border:none;
-  border-radius:14px;
-  background:#16a34a;
-  color:#fff;
-  font-weight:600;
-  cursor:pointer
-}
-.msg{color:#16a34a;font-weight:600}
-.err{color:#dc2626}
-</style>
-</head>
-<body>
 
-<div class="card">
-<h3>💰 Add Balance to User</h3>
+<?php if ($msg): ?>
+    <div class="admin-alert admin-alert-success">
+        <span>✅</span>
+        <div><?= htmlspecialchars($msg) ?></div>
+    </div>
+<?php endif; ?>
 
-<?php if($msg): ?><p class="msg"><?=htmlspecialchars($msg)?></p><?php endif; ?>
-<?php if($error): ?><p class="err"><?=htmlspecialchars($error)?></p><?php endif; ?>
+<?php if ($err): ?>
+    <div class="admin-alert admin-alert-danger">
+        <span>❌</span>
+        <div><?= htmlspecialchars($err) ?></div>
+    </div>
+<?php endif; ?>
 
-<form method="post">
-  <input name="phone" placeholder="User Phone Number" required>
-  <input name="amount" type="number" step="0.01" placeholder="Amount (BDT)" required>
-  <textarea name="note" placeholder="Admin note (optional)"></textarea>
-  <button>Add Balance</button>
-</form>
+<div class="admin-card" style="max-width: 650px; margin: 0 auto;">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">💸 Balance &amp; Coin Adjustment Tool</h2>
+        <a href="balance_logs.php" class="admin-btn admin-btn-secondary admin-btn-sm">
+            📜 Adjustment Logs
+        </a>
+    </div>
 
-<a href="dashboard.php">← Admin Dashboard</a>
+    <form method="post">
+        
+        <div class="admin-form-group">
+            <label class="admin-label">Select Target Member</label>
+            <select name="user_id" class="admin-select" required id="userSelect">
+                <option value="">-- Choose Member from Registry --</option>
+                <?php foreach ($users as $u): ?>
+                    <option value="<?= $u['id'] ?>" <?= ($prefillUserId === (int)$u['id'] || $prefillPhone === $u['phone']) ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($u['name']) ?> (<?= htmlspecialchars($u['phone']) ?>) • 🪙 <?= number_format($u['coins'], 2) ?> | ৳ <?= number_format($u['balance'], 2) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div class="admin-form-group">
+                <label class="admin-label">Asset Type</label>
+                <select name="currency" class="admin-select">
+                    <option value="coins">🪙 Club Coins (UC)</option>
+                    <option value="balance">৳ Fiat BDT Balance</option>
+                </select>
+            </div>
+
+            <div class="admin-form-group">
+                <label class="admin-label">Adjustment Direction</label>
+                <select name="action" class="admin-select">
+                    <option value="add">➕ Credit / Inject (+)</option>
+                    <option value="deduct">➖ Debit / Deduct (-)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="admin-form-group">
+            <label class="admin-label">Adjustment Amount</label>
+            <input type="number" step="0.01" min="0.01" name="amount" class="admin-input" placeholder="e.g. 500.00" required>
+        </div>
+
+        <div class="admin-form-group">
+            <label class="admin-label">Internal Audit Memo / Reason</label>
+            <input type="text" name="note" class="admin-input" placeholder="e.g. Tournament reward, manual refund, corrections">
+        </div>
+
+        <button type="submit" class="admin-btn admin-btn-primary admin-btn-block" style="width: 100%; height: 46px;" onclick="return confirm('Confirm balance adjustment?')">
+            ⚡ Execute Balance Adjustment
+        </button>
+    </form>
 </div>
 
-</body>
-</html>
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

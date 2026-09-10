@@ -1,19 +1,9 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN SYSTEM LEDGER & TREASURY
+ */
 
-/* ================= ADMIN GUARD ================= */
-if (!isset($_SESSION['user_id'])) {
-    die("NO SESSION");
-}
-
-$stmt = $db->prepare("SELECT id, role, name FROM users WHERE id=? LIMIT 1");
-$stmt->execute([$_SESSION['user_id']]);
-$admin = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$admin || $admin['role'] !== 'admin') {
-    die("ADMIN ONLY");
-}
+require_once __DIR__ . "/guard.php";
 
 /* ================= SYSTEM USER ================= */
 $stmt = $db->prepare("
@@ -26,29 +16,24 @@ $stmt->execute();
 $system = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$system) {
-    die("SYSTEM ACCOUNT NOT FOUND");
+    // If system account doesn't exist, create it
+    $db->exec("INSERT INTO users (name, phone, role, status, coins, created_at) VALUES ('SYSTEM', '00000000000', 'system', 'active', 1000000, datetime('now'))");
+    $system = ['id' => $db->lastInsertId(), 'coins' => 1000000];
 }
 
 $msg = $err = "";
 
 /* ================= CASH OUT ================= */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
     $cash = round((float)($_POST['cashout'] ?? 0), 2);
 
     if ($cash <= 0) {
-        $err = "❌ Invalid amount";
-    }
-    elseif ($cash > $system['coins']) {
-        $err = "❌ Insufficient system balance";
-    }
-    else {
-
+        $err = "Invalid cashout amount.";
+    } elseif ($cash > $system['coins']) {
+        $err = "Insufficient system treasury balance.";
+    } else {
         $db->beginTransaction();
-
         try {
-
-            /* ================= UPDATE SYSTEM BALANCE ================= */
             $stmt = $db->prepare("
                 UPDATE users
                 SET coins = coins - ?
@@ -56,205 +41,147 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ");
             $stmt->execute([$cash, $system['id']]);
 
-            /* ================= SYSTEM COIN HISTORY ================= */
             $stmt = $db->prepare("
-                INSERT INTO coin_history
-                    (user_id, amount, type,
-                     source_user_id, source_name, source_number, created_at)
-                VALUES
-                    (?, ?, 'admin_cashout', ?, ?, 'ADMIN', NOW())
+                INSERT INTO coin_history (user_id, amount, source, created_at)
+                VALUES (?, ?, 'SYSTEM_CASHOUT', datetime('now'))
             ");
-            $stmt->execute([
-                $system['id'],
-                -$cash,              // ✅ always negative
-                $admin['id'],
-                $admin['name']
-            ]);
+            $stmt->execute([$system['id'], -$cash]);
 
-            /* ================= SYSTEM LEDGER (AUDIT LOG) ================= */
             $stmt = $db->prepare("
-                INSERT INTO system_ledger
-                    (type, amount, source, reference, created_at)
-                VALUES
-                    ('admin_cashout', ?, 'admin_panel', ?, NOW())
+                INSERT INTO admin_balance_logs (admin_id, user_id, amount, note, created_at)
+                VALUES (?, ?, ?, 'System Treasury Cashout', datetime('now'))
             ");
-            $stmt->execute([
-                -$cash,
-                'Admin ID: '.$admin['id'].' | '.$admin['name']
-            ]);
+            $stmt->execute([$admin['id'], $system['id'], -$cash]);
 
             $db->commit();
-
-            // local update (UI only)
+            $msg = "System treasury cashout of 🪙 $cash processed successfully.";
             $system['coins'] -= $cash;
-
-            $msg = "✅ Cash-out successful";
-
-        } catch (Exception $e) {
-
+        } catch (Throwable $e) {
             $db->rollBack();
-            error_log("ADMIN CASHOUT ERROR: ".$e->getMessage());
-            $err = "❌ Cash-out failed";
-
+            $err = "Cashout failed: " . $e->getMessage();
         }
     }
 }
 
-/* ================= FETCH SYSTEM HISTORY ================= */
+/* ================= FETCH SYSTEM LEDGER ================= */
 $stmt = $db->prepare("
-    SELECT amount, type,
-           source_name, source_number,
-           created_at
-    FROM coin_history
-    WHERE user_id = ?
-    ORDER BY id DESC
-    LIMIT 200
+    SELECT ch.id, ch.amount, ch.source, ch.created_at
+    FROM coin_history ch
+    WHERE ch.user_id = ?
+    ORDER BY ch.id DESC
+    LIMIT 100
 ");
 $stmt->execute([$system['id']]);
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$ledger = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$pageTitle = 'System Ledger';
+$activeNav = 'system_ledger.php';
+$pageSubtitle = 'Master protocol treasury, liquidity reserves, and administrative coin audits.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>System Ledger • Admin</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 
-<style>
-:root{
-    --bg:#0b0f19;
-    --card:#121826;
-    --border:#1f2937;
-    --text:#e5e7eb;
-    --muted:#9ca3af;
-    --green:#22c55e;
-    --red:#ef4444;
-}
-*{box-sizing:border-box;font-family:system-ui}
-body{margin:0;background:var(--bg);color:var(--text)}
-.wrap{max-width:960px;margin:auto;padding:24px}
-
-.card{
-    background:linear-gradient(135deg,#0f172a,#020617);
-    border:1px solid var(--border);
-    border-radius:24px;
-    padding:24px;
-    box-shadow:0 30px 60px rgba(0,0,0,.6);
-}
-
-h2{margin:0 0 12px;font-weight:900}
-
-.balance{
-    font-size:22px;
-    font-weight:900;
-    margin-bottom:16px;
-}
-.balance.pos{color:var(--green)}
-.balance.neg{color:var(--red)}
-
-input{
-    width:100%;
-    padding:14px;
-    border-radius:14px;
-    border:1px solid var(--border);
-    background:#020617;
-    color:var(--text);
-    margin-bottom:10px;
-}
-
-button{
-    width:100%;
-    padding:14px;
-    border:none;
-    border-radius:14px;
-    background:linear-gradient(135deg,#ef4444,#dc2626);
-    color:#fff;
-    font-weight:900;
-    cursor:pointer;
-}
-
-.msg{color:var(--green);font-weight:800;margin-bottom:10px}
-.err{color:var(--red);font-weight:800;margin-bottom:10px}
-
-/* ================= LEDGER ROW ================= */
-.row{
-    display:flex;
-    justify-content:space-between;
-    padding:16px 0;
-    border-bottom:1px dashed var(--border);
-}
-.row:last-child{border-bottom:none}
-
-.type{
-    font-size:12px;
-    text-transform:uppercase;
-    color:var(--muted);
-    font-weight:800;
-}
-.from{
-    font-size:14px;
-    margin-top:4px;
-}
-.time{
-    font-size:11px;
-    color:#64748b;
-}
-
-.plus{color:var(--green);font-weight:900}
-.minus{color:var(--red);font-weight:900}
-
-.back{
-    display:block;
-    margin-top:18px;
-    text-align:center;
-    color:var(--muted);
-    text-decoration:none;
-    font-weight:700;
-}
-</style>
-</head>
-
-<body>
-<div class="wrap">
-<div class="card">
-
-<h2>📊 System Ledger</h2>
-
-<div class="balance <?= $system['coins'] < 0 ? 'neg' : 'pos' ?>">
-    🪙 <?= number_format($system['coins'],2) ?>
-</div>
-
-<?php if($msg): ?><div class="msg"><?= $msg ?></div><?php endif; ?>
-<?php if($err): ?><div class="err"><?= $err ?></div><?php endif; ?>
-
-<form method="post">
-    <input type="number" step="0.01" name="cashout" placeholder="Cash-out coins">
-    <button>💸 Cash Out</button>
-</form>
-
-<?php if ($rows): foreach ($rows as $r): ?>
-<div class="row">
-    <div>
-        <div class="type"><?= htmlspecialchars($r['type']) ?></div>
-        <?php if($r['source_name']): ?>
-            <div class="from">
-                From: <?= htmlspecialchars($r['source_name']) ?>
-                <?= $r['source_number'] ? '(' . htmlspecialchars($r['source_number']) . ')' : '' ?>
-            </div>
-        <?php endif; ?>
-        <div class="time"><?= date("d M Y, h:i A", strtotime($r['created_at'])) ?></div>
+<?php if ($msg): ?>
+    <div class="admin-alert admin-alert-success">
+        <span>✅</span>
+        <div><?= htmlspecialchars($msg) ?></div>
     </div>
-    <div class="<?= $r['amount'] < 0 ? 'minus' : 'plus' ?>">
-        <?= $r['amount'] < 0 ? '−' : '+' ?><?= number_format(abs($r['amount']),2) ?>
-    </div>
-</div>
-<?php endforeach; else: ?>
-<p style="color:var(--muted)">No system transactions yet.</p>
 <?php endif; ?>
 
+<?php if ($err): ?>
+    <div class="admin-alert admin-alert-danger">
+        <span>❌</span>
+        <div><?= htmlspecialchars($err) ?></div>
+    </div>
+<?php endif; ?>
+
+<!-- TREASURY STATS -->
+<div class="admin-stats-grid">
+    <div class="admin-stat-card">
+        <div class="admin-stat-header">
+            <span class="admin-stat-title">System Treasury Vault</span>
+            <div class="admin-stat-icon" style="color: #facc15;">🏛️</div>
+        </div>
+        <div class="admin-stat-value">🪙 <?= number_format($system['coins'], 2) ?></div>
+        <div class="admin-stat-subtext">
+            <span>Protocol reserve balance</span>
+        </div>
+    </div>
+
+    <div class="admin-stat-card">
+        <div class="admin-stat-header">
+            <span class="admin-stat-title">Ledger Transactions</span>
+            <div class="admin-stat-icon" style="color: #38bdf8;">📊</div>
+        </div>
+        <div class="admin-stat-value"><?= count($ledger) ?></div>
+        <div class="admin-stat-subtext">
+            <span>Recent treasury journal entries</span>
+        </div>
+    </div>
 </div>
 
-<a class="back" href="dashboard.php">← Back to Admin Dashboard</a>
+<!-- CASHOUT / REBALANCE ACTION -->
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">💸 System Treasury Cashout / Rebalance</h2>
+    </div>
+
+    <form method="post" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+        <div class="admin-form-group" style="margin-bottom: 0; flex: 1; max-width: 320px;">
+            <label class="admin-label">Coin Amount to Cashout</label>
+            <input type="number" step="0.01" min="1" max="<?= (float)$system['coins'] ?>" name="cashout" class="admin-input" placeholder="e.g. 500.00" required>
+        </div>
+
+        <button type="submit" class="admin-btn admin-btn-danger" style="height: 46px;" onclick="return confirm('Execute system vault cashout?')">
+            ⚡ Withdraw from Treasury
+        </button>
+    </form>
 </div>
-</body>
-</html>
+
+<!-- LEDGER TABLE -->
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">📜 Treasury Journal Entries</h2>
+    </div>
+
+    <?php if (empty($ledger)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No system ledger entries recorded yet.</p>
+    <?php else: ?>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Entry ID</th>
+                        <th>Amount</th>
+                        <th>Transaction Source / Memo</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($ledger as $l): ?>
+                        <tr>
+                            <td>#<?= $l['id'] ?></td>
+                            <td>
+                                <strong style="color: <?= $l['amount'] < 0 ? '#ef4444' : '#22c55e' ?>; font-size: 14px;">
+                                    <?= $l['amount'] > 0 ? '+' : '' ?><?= number_format($l['amount'], 2) ?> UC
+                                </strong>
+                            </td>
+                            <td>
+                                <span class="admin-badge admin-badge-info" style="font-family: monospace;">
+                                    <?= htmlspecialchars($l['source'] ?? 'SYSTEM') ?>
+                                </span>
+                            </td>
+                            <td>
+                                <span style="font-size: 12px; color: var(--admin-text-muted);">
+                                    <?= date("d M Y • h:i A", strtotime($l['created_at'])) ?>
+                                </span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

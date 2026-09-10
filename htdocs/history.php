@@ -1,6 +1,11 @@
 <?php
+/**
+ * UNMOOR CLUB - TRANSACTION HISTORY / LEDGER
+ */
+
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
 /* ================= LOGIN ================= */
 if (!isset($_SESSION['user_id'])) {
@@ -10,7 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $uid = (int)$_SESSION['user_id'];
 
-/* ================= FETCH LEDGER (FIXED) ================= */
+/* ================= FETCH LEDGER ================= */
 $stmt = $db->prepare("
     SELECT amount, type,
            source_name, source_number,
@@ -18,7 +23,7 @@ $stmt = $db->prepare("
     FROM coin_history
     WHERE user_id = ?
     ORDER BY id DESC
-    LIMIT 50
+    LIMIT 60
 ");
 $stmt->execute([$uid]);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -26,118 +31,61 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Ledger • Unmoor</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<style>
-body{
-    margin:0;
-    background:#0b0f19;
-    color:#e5e7eb;
-    font-family:system-ui;
-}
-.wrap{
-    max-width:520px;
-    margin:auto;
-    padding:16px;
-}
-.card{
-    background:#121826;
-    border:1px solid #1f2937;
-    border-radius:22px;
-    padding:16px;
-}
-h3{margin:0 0 12px}
-
-.row{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    border-bottom:1px dashed #1f2937;
-    padding:12px 0;
-}
-.row:last-child{border-bottom:none}
-
-.type{
-    font-size:12px;
-    font-weight:800;
-    color:#9ca3af;
-    text-transform:uppercase;
-}
-.ref{
-    font-size:14px;
-    margin-top:4px;
-}
-.time{
-    font-size:11px;
-    color:#6b7280;
-    margin-top:4px;
-}
-
-.plus{
-    color:#22c55e;
-    font-weight:900;
-    font-size:15px;
-}
-.minus{
-    color:#ef4444;
-    font-weight:900;
-    font-size:15px;
-}
-
-.back{
-    display:block;
-    text-align:center;
-    margin-top:14px;
-    color:#9ca3af;
-    text-decoration:none;
-    font-weight:700;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>Account Ledger • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
-
 <body>
+    <div class="page-wrap">
+        
+        <?= render_page_header("Account Ledger", "/dashboard.php") ?>
 
-<div class="wrap">
-<div class="card">
+        <div class="card">
+            <h3 style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 12px; text-transform: uppercase;">
+                📜 Transaction History
+            </h3>
 
-<h3>📒 Account Ledger</h3>
+            <?php if ($rows): ?>
+                <?php foreach ($rows as $r): ?>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--border-color);">
+                        <div>
+                            <div style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">
+                                <?= htmlspecialchars(str_replace('_', ' ', $r['type'])) ?>
+                            </div>
+                            <div style="font-size: 13.5px; font-weight: 700; color: #ffffff; margin-top: 2px;">
+                                <?php if (!empty($r['source_name'])): ?>
+                                    <?= htmlspecialchars($r['source_name']) ?>
+                                    <?php if (!empty($r['source_number'])): ?>
+                                        <span style="font-size: 11.5px; color: var(--text-muted); font-weight: normal;">(<?= htmlspecialchars($r['source_number']) ?>)</span>
+                                    <?php endif; ?>
+                                <?php elseif (!empty($r['reference'])): ?>
+                                    <?= htmlspecialchars($r['reference']) ?>
+                                <?php else: ?>
+                                    System Transaction
+                                <?php endif; ?>
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">
+                                ⏱️ <?= date("d M Y, h:i A", strtotime($r['created_at'])) ?>
+                            </div>
+                        </div>
 
-<?php if ($rows): foreach ($rows as $r): ?>
-<div class="row">
-    <div>
-        <div class="type"><?= htmlspecialchars($r['type']) ?></div>
-
-        <?php if (!empty($r['source_name'])): ?>
-            <div class="ref">
-                <?= htmlspecialchars($r['source_name']) ?>
-                <?php if (!empty($r['source_number'])): ?>
-                    (<?= htmlspecialchars($r['source_number']) ?>)
-                <?php endif; ?>
-            </div>
-        <?php elseif (!empty($r['reference'])): ?>
-            <div class="ref"><?= htmlspecialchars($r['reference']) ?></div>
-        <?php endif; ?>
-
-        <div class="time">
-            <?= date("d M Y, h:i A", strtotime($r['created_at'])) ?>
+                        <div style="font-weight: 900; font-size: 15px; text-align: right; color: <?= $r['amount'] >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' ?>;">
+                            <?= $r['amount'] >= 0 ? '+' : '−' ?>🪙<?= number_format(abs((float)$r['amount']), 2) ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div style="text-align: center; color: var(--text-muted); padding: 36px 0; font-size: 13.5px;">
+                    No transactions recorded yet.
+                </div>
+            <?php endif; ?>
         </div>
+
+        <?= render_support_widget() ?>
+
     </div>
 
-    <div class="<?= $r['amount'] >= 0 ? 'plus' : 'minus' ?>">
-        <?= $r['amount'] >= 0 ? '+' : '−' ?>
-        <?= number_format(abs((float)$r['amount']), 2) ?>
-    </div>
-</div>
-<?php endforeach; else: ?>
-<p style="color:#9ca3af">No transactions yet</p>
-<?php endif; ?>
-
-</div>
-
-<a class="back" href="dashboard.php">← Back to Dashboard</a>
-</div>
-
+    <?php require_once __DIR__ . "/bottom_nav.php"; ?>
 </body>
 </html>

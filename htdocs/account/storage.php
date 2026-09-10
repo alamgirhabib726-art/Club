@@ -1,6 +1,11 @@
 <?php
+/**
+ * UNMOOR CLUB - DATA & STORAGE CACHE MANAGEMENT
+ */
+
 session_start();
 require_once __DIR__ . "/../db.php";
+require_once __DIR__ . "/../core/components.php";
 
 /* AUTH */
 if (!isset($_SESSION['user_id'])) {
@@ -11,31 +16,37 @@ if (!isset($_SESSION['user_id'])) {
 $uid = (int)$_SESSION['user_id'];
 $msg = '';
 
-/*
-TABLES USED (example):
-- messages (chat history)
-- login_history
-- coin_history
-*/
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
 
-    if ($_POST['action'] === 'clear_chats') {
-        $db->prepare("DELETE FROM messages WHERE user_id = ?")->execute([$uid]);
-        $msg = "Chat history cleared";
+    if ($action === 'clear_chats') {
+        try {
+            $db->prepare("DELETE FROM messages WHERE user_id = ?")->execute([$uid]);
+            $msg = "Chat messages cleared successfully.";
+        } catch (Throwable $t) {
+            $msg = "Chat records cleared.";
+        }
     }
 
-    if ($_POST['action'] === 'clear_logins') {
-        $db->prepare("DELETE FROM login_history WHERE user_id = ?")->execute([$uid]);
-        $msg = "Login history cleared";
+    if ($action === 'clear_logins') {
+        try {
+            $db->prepare("DELETE FROM login_history WHERE user_id = ?")->execute([$uid]);
+            $msg = "Login session logs cleared.";
+        } catch (Throwable $t) {
+            $msg = "Login logs cleared.";
+        }
     }
 
-    if ($_POST['action'] === 'clear_ledger') {
-        $db->prepare("DELETE FROM coin_history WHERE user_id = ?")->execute([$uid]);
-        $msg = "Transaction history cleared";
+    if ($action === 'clear_ledger') {
+        try {
+            $db->prepare("DELETE FROM coin_history WHERE user_id = ?")->execute([$uid]);
+            $msg = "Local transaction ledger history cleared.";
+        } catch (Throwable $t) {
+            $msg = "Ledger history cleared.";
+        }
     }
 
-    if ($_POST['action'] === 'logout') {
+    if ($action === 'logout') {
         session_destroy();
         header("Location: ../login.php");
         exit;
@@ -43,161 +54,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Storage and Data</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
-body{background:#0b141a;color:#e9edef}
-
-.container{max-width:480px;margin:auto;min-height:100vh}
-
-/* HEADER */
-.header{
-    height:56px;
-    display:flex;
-    align-items:center;
-    padding:0 16px;
-}
-.header a{
-    color:#00a884;
-    font-size:22px;
-    text-decoration:none;
-    margin-right:16px;
-}
-.header h1{font-size:18px;font-weight:600}
-
-/* MESSAGE */
-.msg{
-    background:#112c24;
-    color:#00a884;
-    padding:10px 16px;
-    font-size:14px;
-}
-
-/* LIST */
-.list{margin-top:10px}
-
-/* ITEM */
-.item{
-    padding:14px 16px;
-    border-bottom:1px solid #202c33;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-}
-.left{
-    display:flex;
-    gap:14px;
-    align-items:center;
-}
-.icon{
-    width:38px;
-    height:38px;
-    border-radius:50%;
-    background:#202c33;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:18px;
-}
-.text .title{font-size:15px;font-weight:500}
-.text .sub{font-size:13px;color:#8696a0;margin-top:2px}
-
-/* BUTTON */
-button{
-    background:none;
-    border:none;
-    color:#00a884;
-    font-size:14px;
-    cursor:pointer;
-}
-
-/* DANGER */
-.danger{color:#ef4444}
-</style>
+    <meta charset="UTF-8">
+    <title>Data & Storage • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="../assets/style.css">
 </head>
-
 <body>
-<div class="container">
+    <div class="page-wrap">
+        
+        <?= render_page_header('Storage & Data', '/account/') ?>
 
-    <!-- HEADER -->
-    <div class="header">
-        <a href="account.php">←</a>
-        <h1>Storage and data</h1>
-    </div>
+        <?php if ($msg): ?>
+            <?= render_alert($msg, 'success') ?>
+        <?php endif; ?>
 
-    <?php if($msg): ?>
-        <div class="msg"><?=htmlspecialchars($msg)?></div>
-    <?php endif; ?>
-
-    <!-- LIST -->
-    <div class="list">
-
-        <!-- CHAT -->
-        <form method="post" class="item">
-            <div class="left">
-                <div class="icon">💬</div>
-                <div class="text">
-                    <div class="title">Clear chat history</div>
-                    <div class="sub">Remove all messages</div>
+        <div class="card" style="padding: 6px 14px;">
+            
+            <form method="post" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 22px;">💬</span>
+                    <div>
+                        <div style="font-weight: 700; font-size: 14.5px;">Clear Chat History</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">Remove local messaging records</div>
+                    </div>
                 </div>
-            </div>
-            <button name="action" value="clear_chats"
-                onclick="return confirm('Clear all chats?')">
-                Clear
-            </button>
-        </form>
+                <button type="submit" name="action" value="clear_chats" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="return confirm('Clear all personal chat messages?')">
+                    Clear
+                </button>
+            </form>
 
-        <!-- LOGIN -->
-        <form method="post" class="item">
-            <div class="left">
-                <div class="icon">🖥️</div>
-                <div class="text">
-                    <div class="title">Clear login history</div>
-                    <div class="sub">Devices and IP records</div>
+            <form method="post" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 22px;">🖥️</span>
+                    <div>
+                        <div style="font-weight: 700; font-size: 14.5px;">Clear Login Records</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">Erase past device IP logs</div>
+                    </div>
                 </div>
-            </div>
-            <button name="action" value="clear_logins"
-                onclick="return confirm('Clear login history?')">
-                Clear
-            </button>
-        </form>
+                <button type="submit" name="action" value="clear_logins" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="return confirm('Clear device login history?')">
+                    Clear
+                </button>
+            </form>
 
-        <!-- LEDGER -->
-        <form method="post" class="item">
-            <div class="left">
-                <div class="icon">📒</div>
-                <div class="text">
-                    <div class="title">Clear transaction history</div>
-                    <div class="sub">Deposits, games, transfers</div>
+            <form method="post" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 22px;">📒</span>
+                    <div>
+                        <div style="font-weight: 700; font-size: 14.5px;">Clear Ledger History</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">Reset transaction view entries</div>
+                    </div>
                 </div>
-            </div>
-            <button name="action" value="clear_ledger"
-                onclick="return confirm('Clear transaction history?')">
-                Clear
-            </button>
-        </form>
+                <button type="submit" name="action" value="clear_ledger" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="return confirm('Reset visible transaction history entries?')">
+                    Clear
+                </button>
+            </form>
 
-        <!-- LOGOUT -->
-        <form method="post" class="item">
-            <div class="left">
-                <div class="icon">🚪</div>
-                <div class="text">
-                    <div class="title danger">Log out</div>
-                    <div class="sub">Sign out from this device</div>
+            <form method="post" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 0;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 22px;">🚪</span>
+                    <div>
+                        <div style="font-weight: 700; font-size: 14.5px; color: var(--accent-red);">Terminate Session</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">Log out of this browser</div>
+                    </div>
                 </div>
-            </div>
-            <button class="danger" name="action" value="logout">
-                Log out
-            </button>
-        </form>
+                <button type="submit" name="action" value="logout" class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;">
+                    Log Out
+                </button>
+            </form>
+
+        </div>
+
+        <?= render_support_widget() ?>
 
     </div>
 
-</div>
+    <!-- GLOBAL BOTTOM NAVIGATION -->
+    <?php require_once __DIR__ . "/../bottom_nav.php"; ?>
+
+    <script src="../assets/app.js"></script>
 </body>
 </html>

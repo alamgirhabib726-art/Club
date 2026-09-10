@@ -1,22 +1,40 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN MARKET SEED & INITIAL PRICE
+ */
 
-/* ===== ADMIN GUARD ===== */
-if (!isset($_SESSION['user_id'])) {
-    header("Location: admin_login.php");
-    exit;
+require_once __DIR__ . "/guard.php";
+
+$msg = '';
+$err = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $price = (float)($_POST['price'] ?? 0);
+    if ($price <= 0) {
+        $err = "Seed price must be greater than zero.";
+    } else {
+        try {
+            $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $nowExpr = ($driver === 'sqlite') ? "datetime('now')" : "NOW()";
+
+            $db->prepare("
+                INSERT INTO uc_market (price, created_at)
+                VALUES (?, $nowExpr)
+            ")->execute([$price]);
+
+            try {
+                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, $nowExpr)")
+                   ->execute([$admin['id'], "Seeded market price to ৳$price"]);
+            } catch (Throwable $t) {}
+
+            $msg = "Market seed price set to ৳ " . number_format($price, 2);
+        } catch (Throwable $e) {
+            $err = "Failed to set seed price: " . $e->getMessage();
+        }
+    }
 }
 
-$stmt = $db->prepare("SELECT role FROM users WHERE id=? LIMIT 1");
-$stmt->execute([$_SESSION['user_id']]);
-$role = $stmt->fetchColumn();
-
-if ($role !== 'admin') {
-    die("ACCESS DENIED");
-}
-
-/* ===== CURRENT MARKET INFO ===== */
+/* FETCH CURRENT MARKET PRICE */
 $row = $db->query("
     SELECT price, created_at 
     FROM uc_market 
@@ -25,79 +43,61 @@ $row = $db->query("
 ")->fetch(PDO::FETCH_ASSOC);
 
 $currentPrice = $row['price'] ?? null;
+
+$pageTitle = 'Market Seed';
+$activeNav = 'market_seed.php';
+$pageSubtitle = 'Initialize or benchmark the base internal trade price for club assets.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Market Seed • Admin</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 
-<style>
-body{
-    background:#020617;
-    color:#e5e7eb;
-    font-family:system-ui;
-    padding:20px;
-}
-.card{
-    max-width:420px;
-    margin:auto;
-    background:#0b1220;
-    border-radius:18px;
-    padding:20px;
-    border:1px solid #1f2937;
-}
-h2{margin-top:0}
-input{
-    width:100%;
-    padding:12px;
-    border-radius:12px;
-    border:1px solid #1f2937;
-    background:#020617;
-    color:#fff;
-    margin-bottom:12px;
-}
-button{
-    width:100%;
-    padding:14px;
-    border:none;
-    border-radius:14px;
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-    font-weight:900;
-    cursor:pointer;
-}
-.status{
-    margin-top:10px;
-    font-size:13px;
-    opacity:.9;
-}
-</style>
-</head>
-<body>
-
-<div class="card">
-    <h2>📊 Market Seed</h2>
-
-    <div class="status">
-        Current Price:
-        <strong>
-            <?= $currentPrice ? "৳ ".number_format($currentPrice,2) : "Not seeded" ?>
-        </strong>
+<?php if ($msg): ?>
+    <div class="admin-alert admin-alert-success">
+        <span>✅</span>
+        <div><?= htmlspecialchars($msg) ?></div>
     </div>
+<?php endif; ?>
 
-    <form method="post" action="market_seed_action.php">
-        <input type="number" step="0.01" name="price"
-               placeholder="Seed price (e.g. 10.00)" required>
+<?php if ($err): ?>
+    <div class="admin-alert admin-alert-danger">
+        <span>❌</span>
+        <div><?= htmlspecialchars($err) ?></div>
+    </div>
+<?php endif; ?>
 
-        <button type="submit">🌱 Seed Market</button>
-    </form>
-
-    <div class="status">
-        ⚠️ Use once or few times only.  
-        Market engine will move price later.
+<div class="admin-stats-grid">
+    <div class="admin-stat-card">
+        <div class="admin-stat-header">
+            <span class="admin-stat-title">Current Market Benchmark</span>
+            <div class="admin-stat-icon" style="color: #22c55e;">📈</div>
+        </div>
+        <div class="admin-stat-value">
+            <?= $currentPrice ? "৳ " . number_format($currentPrice, 2) : "Unseeded" ?>
+        </div>
+        <div class="admin-stat-subtext">
+            <span>Last recorded valuation rate</span>
+        </div>
     </div>
 </div>
 
-</body>
-</html>
+<div class="admin-card" style="max-width: 540px;">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">🌱 Seed Internal Market Rate</h2>
+    </div>
+
+    <form method="post">
+        <div class="admin-form-group">
+            <label class="admin-label">Seed Price (৳ BDT per unit)</label>
+            <input type="number" step="0.01" min="0.01" name="price" class="admin-input" placeholder="e.g. 10.00" value="<?= $currentPrice ? htmlspecialchars((string)$currentPrice) : '' ?>" required>
+            <div style="font-size: 12px; color: var(--admin-text-dim); margin-top: 6px;">
+                ⚠️ Use only during initial setup or manual market resets. The market engine will compute organic rate changes thereafter.
+            </div>
+        </div>
+
+        <button type="submit" class="admin-btn admin-btn-primary admin-btn-block" style="width: 100%;" onclick="return confirm('Update market baseline seed?')">
+            🌱 Inject Market Benchmark
+        </button>
+    </form>
+</div>
+
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

@@ -51,27 +51,25 @@ if ($order['status'] !== 'pending') {
 $db->beginTransaction();
 
 try {
+    $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
+    $nowExpr = ($driver === 'sqlite') ? "datetime('now')" : "NOW()";
 
     /* APPROVE */
     if ($action === 'approve') {
-
-        // mark approved
         $db->prepare("
             UPDATE payments
             SET status='approved'
             WHERE id=?
         ")->execute([$id]);
 
-        // optional: log ledger
         $db->prepare("
-            INSERT INTO coin_history (user_id, amount, `change`, type, reference, created_at)
-            VALUES (?, 0, 0, 'purchase', 'Order approved', NOW())
+            INSERT INTO coin_history (user_id, amount, type, source, created_at)
+            VALUES (?, 0, 'purchase', 'Order approved', $nowExpr)
         ")->execute([$order['user_id']]);
     }
 
     /* REJECT */
     if ($action === 'reject') {
-
         // refund coins
         $db->prepare("
             UPDATE users
@@ -82,20 +80,17 @@ try {
             $order['user_id']
         ]);
 
-        // mark rejected
         $db->prepare("
             UPDATE payments
             SET status='rejected'
             WHERE id=?
         ")->execute([$id]);
 
-        // ledger refund
         $db->prepare("
-            INSERT INTO coin_history (user_id, amount, `change`, type, reference, created_at)
-            VALUES (?, ?, ?, 'refund', 'Purchase rejected', NOW())
+            INSERT INTO coin_history (user_id, amount, type, source, created_at)
+            VALUES (?, ?, 'refund', 'Purchase rejected', $nowExpr)
         ")->execute([
             $order['user_id'],
-            $order['amount'],
             $order['amount']
         ]);
     }
@@ -104,11 +99,8 @@ try {
 
 } catch (Exception $e) {
     $db->rollBack();
-    die("FAILED");
+    die("FAILED: " . $e->getMessage());
 }
 
-/* =========================
-   REDIRECT BACK
-========================= */
 header("Location: purchase_orders.php");
 exit;

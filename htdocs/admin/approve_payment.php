@@ -18,11 +18,7 @@ if ($stmt->fetchColumn() !== 'admin') {
 /* ===============================
    VALIDATE INPUT
 ================================ */
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    die("INVALID REQUEST");
-}
-
-$payment_id = (int)($_POST['payment_id'] ?? 0);
+$payment_id = (int)($_POST['payment_id'] ?? ($_GET['id'] ?? 0));
 if ($payment_id <= 0) {
     die("INVALID PAYMENT ID");
 }
@@ -72,7 +68,8 @@ $systemId = $db->query("
 ")->fetchColumn();
 
 if (!$systemId) {
-    die("SYSTEM USER MISSING");
+    $db->exec("INSERT INTO users (name, phone, role, status, coins, created_at) VALUES ('SYSTEM', '00000000000', 'system', 'active', 1000000, datetime('now'))");
+    $systemId = $db->lastInsertId();
 }
 
 /* ===============================
@@ -81,28 +78,29 @@ if (!$systemId) {
 $db->beginTransaction();
 
 try {
+    $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
+    $nowExpr = ($driver === 'sqlite') ? "datetime('now')" : "NOW()";
 
-    /* ===============================
-       APPLY PAYMENT
-    ================================ */
+    /* APPLY PAYMENT */
     if ($payment['type'] === 'apply') {
-
         $db->prepare("
             UPDATE users
             SET 
                 status = 'active',
                 apply_status = 'approved',
                 coins = coins + 5,
-                coin_cycle_start = NOW()
+                coin_cycle_start = $nowExpr
             WHERE id = ?
+        ")->execute([$payment['user_id']]);
+        
+        $db->prepare("
+            INSERT INTO coin_history (user_id, amount, source, created_at)
+            VALUES (?, 5, 'REGISTRATION_BONUS', $nowExpr)
         ")->execute([$payment['user_id']]);
     }
 
-    /* ===============================
-       PREMIUM PAYMENT
-    ================================ */
+    /* PREMIUM PAYMENT */
     if ($payment['type'] === 'premium') {
-
         $db->prepare("
             UPDATE users
             SET status = 'premium'
@@ -110,29 +108,28 @@ try {
         ")->execute([$payment['user_id']]);
     }
 
-    /* ===============================
-       DEPOSIT PAYMENT (DEBT SAFE)
-    ================================ */
+    /* DEPOSIT PAYMENT */
     if ($payment['type'] === 'deposit') {
-
-        $depositCoins = $payment['amount'] / 10;
+        $depositCoins = (float)$payment['amount'] / 10;
         $currentCoins = (float)$user['coins'];
 
-        // handle negative balance repayment
-        $debt        = max(0, -$currentCoins);
-        $toSystem    = min($debt, $depositCoins);
-        $toUser      = $depositCoins - $toSystem;
+        $debt = max(0, -$currentCoins);
+        $toSystem = min($debt, $depositCoins);
+        $toUser = $depositCoins - $toSystem;
 
-        // update user
         if ($toUser > 0) {
             $db->prepare("
                 UPDATE users
                 SET coins = coins + ?
                 WHERE id = ?
             ")->execute([$toUser, $payment['user_id']]);
+
+            $db->prepare("
+                INSERT INTO coin_history (user_id, amount, source, created_at)
+                VALUES (?, ?, 'DEPOSIT_APPROVAL', $nowExpr)
+            ")->execute([$payment['user_id'], $toUser]);
         }
 
-        // repay system if needed
         if ($toSystem > 0) {
             $db->prepare("
                 UPDATE users
@@ -142,14 +139,27 @@ try {
         }
     }
 
-    /* ===============================
-       MARK PAYMENT APPROVED
-    ================================ */
+    /* DONATION PAYMENT */
+    if ($payment['type'] === 'donation') {
+        try {
+            $db->prepare("
+                INSERT INTO donations (user_id, amount, method, created_at)
+                VALUES (?, ?, 'Manual/Payment', $nowExpr)
+            ")->execute([$payment['user_id'], $payment['amount']]);
+        } catch (Throwable $dt) {}
+    }
+
+    /* MARK PAYMENT APPROVED */
     $db->prepare("
         UPDATE payments
         SET status = 'approved'
         WHERE id = ?
     ")->execute([$payment_id]);
+
+    try {
+        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, $nowExpr)")
+           ->execute([$_SESSION['user_id'], "Approved payment #$payment_id ({$payment['type']} ৳{$payment['amount']})"]);
+    } catch (Throwable $t) {}
 
     $db->commit();
 
@@ -158,8 +168,5 @@ try {
     die("FAILED: " . $e->getMessage());
 }
 
-/* ===============================
-   REDIRECT
-================================ */
 header("Location: payments.php?approved=1");
 exit;

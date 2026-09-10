@@ -1,82 +1,82 @@
 <?php
-require_once __DIR__ . "/guard.php";
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN BALANCE ADJUSTMENT LOGS
+ */
 
-/* ===============================
-   FETCH LOGS
-================================ */
+require_once __DIR__ . "/guard.php";
+
 $rows = $db->query("
     SELECT
+        l.id,
         l.amount,
         l.note,
         l.created_at,
-        u.phone
+        u.name as user_name,
+        u.phone as user_phone
     FROM admin_balance_logs l
     JOIN users u ON u.id = l.user_id
     ORDER BY l.id DESC
-    LIMIT 100
+    LIMIT 200
 ")->fetchAll(PDO::FETCH_ASSOC);
+
+$pageTitle = 'Balance Logs';
+$activeNav = 'balance_logs.php';
+$pageSubtitle = 'Audit log of all manual administrative coin injections and deductions.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Balance Logs • Admin</title>
-<link rel="stylesheet" href="../assets/admin.css">
-<style>
-.wrap{max-width:1100px;margin:24px auto;padding:16px}
-.card{background:#020617;border:1px solid #1f2937;border-radius:18px;padding:24px;box-shadow:0 20px 40px rgba(0,0,0,.6)}
-h2{margin:0 0 16px;color:#f8fafc;font-size:20px;display:flex;align-items:center;gap:10px}
-table{width:100%;border-collapse:collapse;margin-top:12px}
-th,td{padding:12px 14px;border-bottom:1px solid #1f2937;font-size:14px;text-align:left}
-th{color:#9ca3af;background:#0f172a;font-weight:600;text-transform:uppercase;font-size:12px;letter-spacing:0.5px}
-td{color:#e5e7eb}
-tr:hover{background:#0b0f19}
-.back{display:inline-block;margin-top:18px;color:#38bdf8;text-decoration:none;font-weight:500}
-.back:hover{text-decoration:underline}
-.amount{font-weight:600;color:#22c55e}
-</style>
-</head>
 
-<body>
-
-<div class="wrap">
-  <div class="card">
-    <h2>💳 Balance Logs</h2>
-
-    <div class="table-responsive">
-    <table>
-    <thead>
-    <tr>
-        <th>User Phone</th>
-        <th>Amount</th>
-        <th>Note</th>
-        <th>Date</th>
-    </tr>
-    </thead>
-    <tbody>
-    <?php if (!$rows): ?>
-    <tr>
-        <td colspan="4" style="text-align:center;color:#64748b">No balance actions yet</td>
-    </tr>
-    <?php else: ?>
-    <?php foreach ($rows as $r): ?>
-    <tr>
-        <td><strong><?= htmlspecialchars($r['phone']) ?></strong></td>
-        <td class="amount">৳<?= number_format($r['amount'],2) ?></td>
-        <td><?= htmlspecialchars($r['note'] ?: '—') ?></td>
-        <td style="color:#9ca3af"><?= date("d M Y, h:i A", strtotime($r['created_at'])) ?></td>
-    </tr>
-    <?php endforeach; ?>
-    <?php endif; ?>
-    </tbody>
-    </table>
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">💳 Manual Balance Adjustment Logs (<?= count($rows) ?>)</h2>
+        <a href="users.php" class="admin-btn admin-btn-primary admin-btn-sm">
+            👥 Users Directory
+        </a>
     </div>
 
-    <a class="back" href="dashboard.php">← Back to Admin</a>
-  </div>
+    <?php if (empty($rows)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No balance logs recorded yet.</p>
+    <?php else: ?>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Log ID</th>
+                        <th>Member Details</th>
+                        <th>Adjustment Amount</th>
+                        <th>Audit Note</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($rows as $r): ?>
+                        <tr>
+                            <td>#<?= $r['id'] ?></td>
+                            <td>
+                                <strong><?= htmlspecialchars($r['user_name'] ?? 'User') ?></strong>
+                                <div style="font-size: 11px; color: var(--admin-text-dim);">📱 <?= htmlspecialchars($r['user_phone']) ?></div>
+                            </td>
+                            <td>
+                                <strong style="color: <?= $r['amount'] < 0 ? '#ef4444' : '#22c55e' ?>; font-size: 14px;">
+                                    <?= $r['amount'] > 0 ? '+' : '' ?><?= number_format($r['amount'], 2) ?> UC
+                                </strong>
+                            </td>
+                            <td>
+                                <span style="color: var(--admin-text); font-size: 13px;">
+                                    <?= htmlspecialchars($r['note'] ?: 'No memo') ?>
+                                </span>
+                            </td>
+                            <td>
+                                <span style="font-size: 12px; color: var(--admin-text-muted);">
+                                    <?= date("d M Y • h:i A", strtotime($r['created_at'])) ?>
+                                </span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 </div>
 
-</body>
-</html>
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

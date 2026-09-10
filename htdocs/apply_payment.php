@@ -1,6 +1,11 @@
 <?php
+/**
+ * UNMOOR CLUB - APPLICATION PAYMENT
+ */
+
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
 /* ================= LOGIN ================= */
 if (!isset($_SESSION['user_id'])) {
@@ -12,7 +17,7 @@ $uid = (int)$_SESSION['user_id'];
 
 /* ================= FETCH USER ================= */
 $stmt = $db->prepare("
-    SELECT id, status, apply_status
+    SELECT id, name, phone, status, apply_status
     FROM users
     WHERE id = ?
     LIMIT 1
@@ -26,15 +31,13 @@ if (!$user) {
     exit;
 }
 
-/* ================= ROUTING (NO LOOP) ================= */
-
+/* ================= ROUTING ================= */
 if ($user['apply_status'] === 'approved') {
     header("Location: dashboard.php");
     exit;
 }
 
 if ($user['apply_status'] === 'pending') {
-
     $chk = $db->prepare("
         SELECT id FROM payments
         WHERE user_id = ?
@@ -52,7 +55,7 @@ if ($user['apply_status'] === 'pending') {
 
 /* ================= CONFIG ================= */
 $BASE_AMOUNT = 150;
-$PAY_NUMBER  = "01611906722";
+$PAY_NUMBER  = "01788674353";
 
 $methods = [
     'bkash' => 'bKash',
@@ -81,18 +84,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cp = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$cp || $cp['amount'] < $BASE_AMOUNT) {
-            $error = "Invalid coupon code.";
+            $error = "Invalid or expired coupon code.";
         } else {
 
             $db->beginTransaction();
             try {
 
-                /* ===== COIN CALC ===== */
                 $baseCoins  = 5;
                 $extraCoins = max(0, floor(($cp['amount'] - 150) / 10));
                 $totalCoins = $baseCoins + $extraCoins;
 
-                /* ===== ACTIVATE USER ===== */
                 $db->prepare("
                     UPDATE users
                     SET
@@ -104,14 +105,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     WHERE id = ?
                 ")->execute([$totalCoins, $uid]);
 
-                /* ===== SYSTEM +10 COINS ===== */
                 $db->prepare("
                     UPDATE users
                     SET coins = coins + 10
                     WHERE role = 'system'
                 ")->execute();
 
-                /* ===== MARK COUPON USED ===== */
                 $db->prepare("
                     UPDATE coupons
                     SET status='used',
@@ -120,16 +119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     WHERE id=?
                 ")->execute([$uid, $cp['id']]);
 
-                /* ================= COIN HISTORY ================= */
-
-                /* USER APPLY BONUS */
                 $db->prepare("
                     INSERT INTO coin_history
                     (user_id, amount, type, reference, created_at)
                     VALUES (?, ?, 'apply_bonus', 'Application Approved via Coupon', NOW())
                 ")->execute([$uid, $totalCoins]);
 
-                /* SYSTEM REGISTRATION INCOME */
                 $systemId = $db->query("
                     SELECT id FROM users WHERE role='system' LIMIT 1
                 ")->fetchColumn();
@@ -172,31 +167,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $ext  = strtolower(pathinfo($_FILES['proof']['name'], PATHINFO_EXTENSION));
-            $file = "apply_" . time() . "_" . rand(1000,9999) . "." . $ext;
-
-            if (!move_uploaded_file($_FILES['proof']['tmp_name'], "$dir/$file")) {
-                $error = "Upload failed.";
+            $allowed = ['jpg','jpeg','png','webp'];
+            if (!in_array($ext, $allowed)) {
+                $error = "Only JPG, PNG or WEBP images allowed.";
             } else {
+                $file = "apply_" . time() . "_" . rand(1000,9999) . "." . $ext;
 
-                $db->prepare("
-                    INSERT INTO payments
-                    (user_id, type, amount, method, proof, status, created_at)
-                    VALUES (?, 'apply', ?, ?, ?, 'pending', NOW())
-                ")->execute([
-                    $uid,
-                    $BASE_AMOUNT,
-                    $method,
-                    $file
-                ]);
+                if (!move_uploaded_file($_FILES['proof']['tmp_name'], "$dir/$file")) {
+                    $error = "Upload failed.";
+                } else {
 
-                $db->prepare("
-                    UPDATE users
-                    SET apply_status = 'pending'
-                    WHERE id = ?
-                ")->execute([$uid]);
+                    $db->prepare("
+                        INSERT INTO payments
+                        (user_id, type, amount, method, proof, status, created_at)
+                        VALUES (?, 'apply', ?, ?, ?, 'pending', NOW())
+                    ")->execute([
+                        $uid,
+                        $BASE_AMOUNT,
+                        $method,
+                        $file
+                    ]);
 
-                header("Location: application_pending.php");
-                exit;
+                    $db->prepare("
+                        UPDATE users
+                        SET apply_status = 'pending'
+                        WHERE id = ?
+                    ")->execute([$uid]);
+
+                    header("Location: application_pending.php");
+                    exit;
+                }
             }
         }
     }
@@ -205,151 +205,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Application Payment • Unmoor Club</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<style>
-body{
-    margin:0;
-    background:#020617;
-    color:#e5e7eb;
-    font-family:system-ui;
-}
-.wrapper{
-    max-width:420px;
-    margin:28px auto;
-    padding:16px;
-}
-.card{
-    background:#121826;
-    border-radius:26px;
-    padding:24px;
-    box-shadow:0 30px 80px rgba(0,0,0,.7);
-}
-h2{text-align:center;font-weight:900}
-
-.amount{
-    background:#0b1220;
-    border-radius:18px;
-    padding:14px;
-    text-align:center;
-    margin-bottom:16px;
-}
-.send-box{
-    border:2px dashed #1f2937;
-    border-radius:18px;
-    padding:16px;
-    text-align:center;
-    margin-bottom:16px;
-}
-.number{
-    font-size:22px;
-    font-weight:900;
-    margin:6px 0;
-}
-.copy{
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-    color:#022c22;
-    border:none;
-    border-radius:999px;
-    padding:8px 22px;
-    font-weight:900;
-}
-input,select{
-    width:100%;
-    padding:14px;
-    border-radius:14px;
-    border:1px solid #1f2937;
-    background:#020617;
-    color:#fff;
-    margin-bottom:14px;
-}
-button.submit{
-    width:100%;
-    padding:16px;
-    border:none;
-    border-radius:18px;
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-    font-weight:900;
-    color:#022c22;
-}
-.error{
-    color:#ef4444;
-    font-weight:800;
-    text-align:center;
-    margin-bottom:12px;
-}
-.back{
-    display:block;
-    text-align:center;
-    margin-top:16px;
-    color:#9ca3af;
-    text-decoration:none;
-}
-.toast{
-    position:fixed;
-    bottom:30px;
-    left:50%;
-    transform:translateX(-50%);
-    background:#22c55e;
-    color:#022c22;
-    padding:14px 22px;
-    border-radius:999px;
-    font-weight:900;
-    display:none;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>Application Payment • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
-
 <body>
-<div class="wrapper">
-<div class="card">
+    <div class="page-wrap">
+        
+        <div class="card" style="text-align: center;">
+            <h2 style="font-size: 20px; font-weight: 900; margin-bottom: 6px; color: #ffffff;">📝 Membership Payment</h2>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                Complete your application payment of <b>৳<?= $BASE_AMOUNT ?></b>
+            </p>
 
-<h2>📝 Application Payment</h2>
+            <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px;">
+                <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Send Money (bKash / Nagad)</div>
+                <div style="font-size: 22px; font-weight: 900; color: var(--accent-gold); margin: 8px 0;" id="payNum">
+                    <?= $PAY_NUMBER ?>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="copyNumber()">
+                    📋 Copy Number
+                </button>
+            </div>
 
-<div class="amount">
-    💰 Amount: <b>৳<?= $BASE_AMOUNT ?></b><br>
-    📲 bKash / Nagad Supported
-</div>
+            <?php if ($error): ?>
+                <div class="alert alert-danger" style="margin-bottom: 16px; text-align: left;">
+                    ❌ <?= htmlspecialchars($error) ?>
+                </div>
+            <?php endif; ?>
 
-<div class="send-box">
-    Send Money To
-    <div class="number" id="num"><?= $PAY_NUMBER ?></div>
-    <button class="copy" type="button" onclick="copyNum()">Copy</button>
-</div>
+            <form method="post" enctype="multipart/form-data">
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Have an Application Coupon? (Optional)</label>
+                    <input type="text" name="coupon" class="form-control" placeholder="Enter coupon code for instant access">
+                </div>
 
-<?php if($error): ?>
-<div class="error">❌ <?= htmlspecialchars($error) ?></div>
-<?php endif; ?>
+                <div style="text-align: center; margin: 12px 0; color: var(--text-dim); font-size: 12px; font-weight: 800;">
+                    — OR PAY MANUALLY —
+                </div>
 
-<form method="post" enctype="multipart/form-data">
-    <input type="text" name="coupon" placeholder="Have a coupon? (optional)">
-    <select name="method">
-        <option value="">Select Payment Method</option>
-        <option value="bkash">bKash</option>
-        <option value="nagad">Nagad</option>
-    </select>
-    <input type="file" name="proof" accept="image/*">
-    <button class="submit">Submit Application Payment</button>
-</form>
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Payment Method</label>
+                    <select name="method" class="form-control">
+                        <option value="">Select Payment Method</option>
+                        <option value="bkash">bKash (Personal / Send Money)</option>
+                        <option value="nagad">Nagad (Personal / Send Money)</option>
+                    </select>
+                </div>
 
-<a class="back" href="dashboard.php">← Back to Dashboard</a>
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Payment Screenshot Proof</label>
+                    <input type="file" name="proof" class="form-control" accept="image/*">
+                </div>
 
-</div>
-</div>
+                <button type="submit" class="btn btn-gold btn-block" style="padding: 14px; margin-top: 10px;">
+                    Submit Application Payment
+                </button>
+            </form>
 
-<div class="toast" id="toast">✅ Number copied</div>
+            <div style="margin-top: 20px; text-align: center;">
+                <a href="logout.php" style="color: var(--text-muted); font-size: 13px; text-decoration: none;">
+                    🚪 Log Out
+                </a>
+            </div>
+        </div>
 
-<script>
-function copyNum(){
-    navigator.clipboard.writeText(
-        document.getElementById("num").innerText
-    );
-    const t = document.getElementById("toast");
-    t.style.display="block";
-    setTimeout(()=>t.style.display="none",2000);
-}
-</script>
+        <?= render_support_widget() ?>
+
+    </div>
+
+    <script>
+    function copyNumber() {
+        const num = document.getElementById('payNum').innerText.trim();
+        navigator.clipboard.writeText(num).then(() => {
+            alert('Payment number copied: ' + num);
+        });
+    }
+    </script>
 </body>
 </html>

@@ -1,84 +1,108 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN PRODUCTS MANAGEMENT
+ */
 
-/* ADMIN CHECK */
-$stmt = $db->prepare("SELECT role FROM users WHERE id=?");
-$stmt->execute([$_SESSION['user_id'] ?? 0]);
-if ($stmt->fetchColumn() !== 'admin') {
-    die("ACCESS DENIED");
-}
+require_once __DIR__ . "/guard.php";
+
+$msg = '';
+$err = '';
 
 /* UPDATE PRODUCT */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $id = (int)$_POST['id'];
+    $price = (float)$_POST['price'];
+    $discount = (float)$_POST['discount'];
+    $delivery_time = trim($_POST['delivery_time'] ?? '');
+    $active = isset($_POST['active']) ? 1 : 0;
+
     $db->prepare("
         UPDATE products
         SET price = ?, discount = ?, delivery_time = ?, active = ?
         WHERE id = ?
-    ")->execute([
-        (float)$_POST['price'],
-        (float)$_POST['discount'],
-        trim($_POST['delivery_time'] ?? ''),
-        isset($_POST['active']) ? 1 : 0,
-        (int)$_POST['id']
-    ]);
+    ")->execute([$price, $discount, $delivery_time, $active, $id]);
+
+    try {
+        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
+           ->execute([$admin['id'], "Updated product #$id settings"]);
+    } catch (Throwable $t) {}
+
+    $msg = "Product updated successfully.";
 }
 
 /* FETCH PRODUCTS */
-$products = $db->query("SELECT * FROM products ORDER BY id ASC")
-               ->fetchAll(PDO::FETCH_ASSOC);
+$products = $db->query("SELECT * FROM products ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+
+$pageTitle = 'Products Catalog';
+$activeNav = 'products.php';
+$pageSubtitle = 'Configure items, pricing, delivery schedules, and availability.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Purchase Products</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body{font-family:system-ui;background:#f4f4f5;padding:20px}
-.card{background:#fff;padding:16px;border-radius:14px;margin-bottom:16px}
-input{width:100%;padding:10px;margin:6px 0}
-button{padding:10px 14px;background:#7c3aed;color:#fff;border:none;border-radius:10px}
-label{font-size:14px}
-</style>
-</head>
-<body>
 
-<h2>🛒 Purchase Products</h2>
+<?php if ($msg): ?>
+    <div class="admin-alert admin-alert-success">
+        <span>✅</span>
+        <div><?= htmlspecialchars($msg) ?></div>
+    </div>
+<?php endif; ?>
 
-<?php foreach ($products as $p): ?>
-<div class="card">
-<form method="post">
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">📦 Store Products &amp; Services (<?= count($products) ?>)</h2>
+        <a href="purchase_orders.php" class="admin-btn admin-btn-secondary admin-btn-sm">
+            🛍️ Purchase Orders Queue
+        </a>
+    </div>
 
-<input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
+    <?php if (empty($products)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No products configured.</p>
+    <?php else: ?>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px;">
+            <?php foreach ($products as $p): ?>
+                <div style="background: var(--admin-panel-alt); border: 1px solid var(--admin-border); border-radius: var(--admin-radius-lg); padding: 20px;">
+                    <form method="post">
+                        <input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
 
-<strong>
-    <?= htmlspecialchars($p['name'] ?? 'PRODUCT') ?>
-</strong>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                            <strong style="font-size: 16px; color: #ffffff;">
+                                <?= htmlspecialchars($p['name'] ?? 'Product #'.$p['id']) ?>
+                            </strong>
+                            <?php if (!empty($p['active'])): ?>
+                                <span class="admin-badge admin-badge-success">ACTIVE</span>
+                            <?php else: ?>
+                                <span class="admin-badge admin-badge-danger">INACTIVE</span>
+                            <?php endif; ?>
+                        </div>
 
-<label>Price (BDT)</label>
-<input name="price" value="<?= (float)($p['price'] ?? 0) ?>" required>
+                        <div class="admin-form-group">
+                            <label class="admin-label">Price (৳ BDT)</label>
+                            <input type="number" step="0.01" name="price" value="<?= (float)($p['price'] ?? 0) ?>" class="admin-input" required>
+                        </div>
 
-<label>Discount (BDT)</label>
-<input name="discount" value="<?= (float)($p['discount'] ?? 0) ?>" required>
+                        <div class="admin-form-group">
+                            <label class="admin-label">Discount (৳ BDT)</label>
+                            <input type="number" step="0.01" name="discount" value="<?= (float)($p['discount'] ?? 0) ?>" class="admin-input" required>
+                        </div>
 
-<label>Delivery Time</label>
-<input name="delivery_time"
-       value="<?= htmlspecialchars($p['delivery_time'] ?? '') ?>"
-       placeholder="e.g. Instant / 24 Hours">
+                        <div class="admin-form-group">
+                            <label class="admin-label">Delivery Schedule / Time</label>
+                            <input type="text" name="delivery_time" value="<?= htmlspecialchars($p['delivery_time'] ?? '') ?>" placeholder="e.g. Instant / 24 Hours" class="admin-input">
+                        </div>
 
-<label>
-<input type="checkbox" name="active"
-<?= !empty($p['active']) ? 'checked' : '' ?>>
- Active
-</label>
+                        <div class="admin-form-group" style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" name="active" id="prod_active_<?= $p['id'] ?>" <?= !empty($p['active']) ? 'checked' : '' ?> style="width: 18px; height: 18px; accent-color: var(--admin-accent);">
+                            <label for="prod_active_<?= $p['id'] ?>" class="admin-label" style="margin: 0; cursor: pointer; color: #ffffff;">Enable Product in Store</label>
+                        </div>
 
-<br><br>
-<button type="submit">Save</button>
-
-</form>
+                        <button type="submit" class="admin-btn admin-btn-primary admin-btn-block" style="width: 100%;">
+                            💾 Save Product Settings
+                        </button>
+                    </form>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
 </div>
-<?php endforeach; ?>
 
-</body>
-</html>
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

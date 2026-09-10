@@ -1,6 +1,11 @@
 <?php
+/**
+ * UNMOOR CLUB - BUY PRODUCT DETAILS
+ */
+
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -10,17 +15,18 @@ if (!isset($_SESSION['user_id'])) {
 $product = $_GET['product'] ?? '';
 
 if ($product === '') {
-    die("Invalid request");
+    header("Location: dashboard.php");
+    exit;
 }
 
 /* FETCH ACTIVE PRODUCT */
 $stmt = $db->prepare("
     SELECT *
     FROM products
-    WHERE type = ? AND active = 1
+    WHERE (type = ? OR slug = ?) AND active = 1
     LIMIT 1
 ");
-$stmt->execute([$product]);
+$stmt->execute([$product, $product]);
 $p = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$p) {
@@ -29,55 +35,59 @@ if (!$p) {
 
 /* PRICE CALCULATION */
 $price    = (float)$p['price'];
-$discount = (float)$p['discount'];
-$final    = round($price - ($price * $discount / 100), 2);
+$discount = (float)($p['discount'] ?? 0);
+$final    = max(0, round($price - ($discount > 1 ? $discount : ($price * $discount / 100)), 2));
 ?>
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title><?= htmlspecialchars(strtoupper($p['type'])) ?></title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body{font-family:system-ui;background:#f4f4f5;padding:20px}
-.card{
-    max-width:420px;
-    margin:auto;
-    background:#fff;
-    padding:20px;
-    border-radius:18px
-}
-button{
-    width:100%;
-    padding:14px;
-    border-radius:14px;
-    background:#7c3aed;
-    color:#fff;
-    border:none;
-    font-weight:600;
-    cursor:pointer
-}
-.old{opacity:.6;text-decoration:line-through}
-.price{font-size:18px;font-weight:700}
-</style>
+    <meta charset="UTF-8">
+    <title><?= htmlspecialchars($p['title'] ?? strtoupper($p['type'] ?? 'Product')) ?> • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
-
 <body>
+    <div class="page-wrap">
+        
+        <?= render_page_header("Product Checkout", "/dashboard.php") ?>
 
-<div class="card">
-    <h3><?= htmlspecialchars(strtoupper($p['type'])) ?></h3>
+        <div class="card">
+            <h3 style="font-size: 18px; font-weight: 900; color: #ffffff; margin-bottom: 12px;">
+                📦 <?= htmlspecialchars($p['title'] ?? strtoupper($p['type'] ?? 'Product')) ?>
+            </h3>
 
-    <p>মূল্য: <span class="old">৳<?= number_format($price,2) ?></span></p>
-    <p>ডিসকাউন্ট: <?= (int)$discount ?>%</p>
-    <p class="price">চূড়ান্ত মূল্য: ৳<?= number_format($final,2) ?></p>
+            <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 13.5px;">
+                    <span style="color: var(--text-muted);">Regular Price:</span>
+                    <span style="text-decoration: line-through; color: var(--text-dim);">৳<?= number_format($price, 2) ?></span>
+                </div>
+                <?php if ($discount > 0): ?>
+                    <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 13.5px; color: var(--accent-gold);">
+                        <span>Discount:</span>
+                        <span>- ৳<?= number_format($price - $final, 2) ?></span>
+                    </div>
+                <?php endif; ?>
+                <div style="display: flex; justify-content: space-between; padding: 8px 0 0; border-top: 1px dashed var(--border-color); margin-top: 6px; font-size: 16px; font-weight: 900;">
+                    <span style="color: #ffffff;">Final Price:</span>
+                    <span style="color: var(--accent-gold);">৳<?= number_format($final, 2) ?></span>
+                </div>
+            </div>
 
-    <p>ডেলিভারি: <?= htmlspecialchars($p['delivery_time'] ?? '—') ?></p>
+            <?php if (!empty($p['delivery_time'])): ?>
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                    🚚 <b>Delivery Time:</b> <?= htmlspecialchars($p['delivery_time']) ?>
+                </div>
+            <?php endif; ?>
 
-    <br>
-    <a href="purchase_pay.php?product=<?= urlencode($p['type']) ?>">
-        <button>Buy Now</button>
-    </a>
-</div>
+            <a href="purchase_pay.php?product=<?= urlencode($p['slug'] ?? $p['type'] ?? '') ?>" class="btn btn-gold btn-block" style="padding: 14px; text-decoration: none; text-align: center;">
+                Proceed to Payment ›
+            </a>
+        </div>
 
+        <?= render_support_widget() ?>
+
+    </div>
+
+    <?php require_once __DIR__ . "/bottom_nav.php"; ?>
 </body>
 </html>

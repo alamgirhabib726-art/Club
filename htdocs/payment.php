@@ -1,6 +1,11 @@
 <?php
+/**
+ * UNMOOR CLUB - PREMIUM UPGRADE / PAYMENT
+ */
+
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
 /* ================= LOGIN REQUIRED ================= */
 if (!isset($_SESSION['user_id'])) {
@@ -35,22 +40,23 @@ $pending = ($lastPayment && $lastPayment['status'] === 'pending');
 
 $error = '';
 $success = false;
+$PAY_NUMBER = "01788674353";
 
 /* ================= HANDLE FORM ================= */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($pending) {
-        $error = "আপনার একটি পেমেন্ট ইতিমধ্যে রিভিউতে আছে";
+        $error = "A premium payment request is already pending review.";
     } else {
 
         $plan  = $_POST['plan'] ?? '';
         $proof = $_FILES['proof'] ?? null;
 
         if (!in_array($plan, ['day','month'], true)) {
-            $error = "প্ল্যান নির্বাচন করুন";
+            $error = "Please select a valid membership plan.";
         }
         elseif (!$proof || $proof['error'] !== UPLOAD_ERR_OK) {
-            $error = "পেমেন্ট স্ক্রিনশট দিন";
+            $error = "Payment screenshot proof is required.";
         }
         else {
 
@@ -61,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ext = strtolower(pathinfo($proof['name'], PATHINFO_EXTENSION));
 
             if (!in_array($ext, $allowedExt, true)) {
-                $error = "শুধু ছবি ফাইল অনুমোদিত";
+                $error = "Only JPG, PNG or WEBP image files allowed.";
             } else {
 
                 $uploadDir = __DIR__ . "/uploads/premium";
@@ -73,14 +79,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $path = $uploadDir . "/" . $filename;
 
                 if (!move_uploaded_file($proof['tmp_name'], $path)) {
-                    $error = "ফাইল আপলোড ব্যর্থ";
+                    $error = "File upload failed. Please try again.";
                 } else {
 
                     /* ===== SAVE PAYMENT ===== */
                     $stmt = $db->prepare("
                         INSERT INTO payments
                         (user_id, type, amount, plan, proof, status, created_at)
-                        VALUES (?, 'premium', ?, ?, ?, 'pending', CURRENT_TIMESTAMP)
+                        VALUES (?, 'premium', ?, ?, ?, 'pending', NOW())
                     ");
                     $stmt->execute([
                         $user_id,
@@ -98,83 +104,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Premium Payment • Unmoor</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-body{font-family:system-ui;background:#f6f7fb}
-.card{
-  max-width:420px;margin:30px auto;background:#fff;
-  padding:20px;border-radius:18px;
-  box-shadow:0 20px 40px rgba(0,0,0,.15)
-}
-select,input,button{
-  width:100%;padding:14px;margin-bottom:12px;
-  border-radius:14px;border:1px solid #e5e7eb
-}
-button{background:#7c3aed;color:#fff;font-weight:600;border:none}
-.error{color:#dc2626;margin-bottom:10px}
-.success{
-  background:#dcfce7;color:#166534;
-  padding:14px;border-radius:14px;text-align:center
-}
-.pending{
-  background:#fff7ed;color:#9a3412;
-  padding:14px;border-radius:14px;text-align:center
-}
-small{color:#6b7280}
-</style>
+    <meta charset="UTF-8">
+    <title>Upgrade to Premium • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+    <div class="page-wrap">
+        
+        <?= render_page_header("Premium Membership", "/dashboard.php") ?>
 
-<div class="card">
-<h3>⬆️ Premium Upgrade</h3>
+        <div class="card">
+            <h3 style="font-size: 18px; font-weight: 900; color: #ffffff; margin-bottom: 8px;">
+                ⭐ Upgrade to Premium
+            </h3>
+            <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
+                Unlock higher rewards, prioritized support, reduced fees, and exclusive member features.
+            </p>
 
-<?php if ($error): ?>
-  <div class="error"><?= htmlspecialchars($error) ?></div>
-<?php endif; ?>
+            <?php if ($error): ?>
+                <div class="alert alert-danger" style="margin-bottom: 14px;">
+                    <?= htmlspecialchars($error) ?>
+                </div>
+            <?php endif; ?>
 
-<?php if ($pending): ?>
-  <div class="pending">
-    ⏳ আপনার পেমেন্ট রিভিউতে আছে<br>
-    এডমিন অনুমোদনের অপেক্ষায়
-  </div>
+            <?php if ($pending): ?>
+                <div class="alert alert-warning" style="margin-bottom: 14px; text-align: center;">
+                    ⏳ <b>Payment Under Review</b><br>
+                    Your premium upgrade request has been received and is pending administrator verification.
+                </div>
+                <a href="dashboard.php" class="btn btn-secondary btn-block" style="padding: 12px; text-align: center;">
+                    ← Return to Dashboard
+                </a>
+            <?php elseif ($success): ?>
+                <div class="alert alert-success" style="margin-bottom: 14px; text-align: center;">
+                    ✅ <b>Payment Submitted!</b><br>
+                    Your account will be upgraded immediately upon admin approval.
+                </div>
+                <a href="dashboard.php" class="btn btn-secondary btn-block" style="padding: 12px; text-align: center;">
+                    ← Return to Dashboard
+                </a>
+            <?php else: ?>
 
-<?php elseif ($success): ?>
-  <div class="success">
-    ✅ পেমেন্ট সাবমিট হয়েছে<br>
-    ⏳ এডমিন অনুমোদনের অপেক্ষায়
-  </div>
+                <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; text-align: center; margin-bottom: 16px;">
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Send Money to (bKash / Nagad)</div>
+                    <div style="font-size: 20px; font-weight: 900; color: var(--accent-gold); margin: 4px 0;" id="payNum">
+                        <?= $PAY_NUMBER ?>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="copyNum()">
+                        📋 Copy Number
+                    </button>
+                </div>
 
-<?php else: ?>
+                <form method="post" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label class="form-label">Select Membership Plan</label>
+                        <select name="plan" class="form-control" required>
+                            <option value="">-- Choose Plan --</option>
+                            <option value="day">1 Day Pass — ৳10</option>
+                            <option value="month">1 Month VIP Membership — ৳300</option>
+                        </select>
+                    </div>
 
-<form method="post" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label class="form-label">Upload Transaction Screenshot</label>
+                        <input type="file" name="proof" class="form-control" accept="image/*" required>
+                    </div>
 
-  <label>প্ল্যান নির্বাচন করুন</label>
-  <select name="plan" required>
-    <option value="">-- নির্বাচন করুন --</option>
-    <option value="day">ডে প্ল্যান – ৳10</option>
-    <option value="month">মাসিক প্ল্যান – ৳300</option>
-  </select>
+                    <button type="submit" class="btn btn-gold btn-block" style="padding: 14px; margin-top: 10px;">
+                        Submit Premium Upgrade
+                    </button>
+                </form>
 
-  <p>
-    📱 Payment Number:<br>
-    <b>01788674353</b><br>
-    <small>bKash / Nagad</small>
-  </p>
+            <?php endif; ?>
+        </div>
 
-  <label>পেমেন্ট স্ক্রিনশট</label>
-  <input type="file" name="proof" accept="image/*" required>
+        <?= render_support_widget() ?>
 
-  <button type="submit">Submit Payment</button>
-</form>
+    </div>
 
-<?php endif; ?>
+    <?php require_once __DIR__ . "/bottom_nav.php"; ?>
 
-<a href="dashboard.php">← ড্যাশবোর্ড</a>
-</div>
-
+    <script>
+    function copyNum() {
+        const n = document.getElementById('payNum').innerText.trim();
+        navigator.clipboard.writeText(n).then(() => {
+            alert('Number copied: ' + n);
+        });
+    }
+    </script>
 </body>
 </html>

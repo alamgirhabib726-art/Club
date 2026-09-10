@@ -1,248 +1,109 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN COUPON REDEMPTION AUDIT & HISTORY
+ */
 
-/* =========================
-   ADMIN AUTH
-========================= */
-$stmt = $db->prepare("SELECT role FROM users WHERE id=? LIMIT 1");
-$stmt->execute([$_SESSION['user_id'] ?? 0]);
+require_once __DIR__ . "/guard.php";
 
-if ($stmt->fetchColumn() !== 'admin') {
-    die("ACCESS DENIED");
-}
-
-/* =========================
-   FETCH COUPON HISTORY
-========================= */
+/* ================= FETCH COUPON HISTORY ================= */
 $history = $db->query("
     SELECT
+        c.id,
         c.code,
         c.amount,
         c.type,
         c.status,
+        c.created_at,
         c.used_at,
-        u.name,
-        u.phone
+        u.name as used_by_name,
+        u.phone as used_by_phone
     FROM coupons c
     LEFT JOIN users u ON u.id = c.used_by
     ORDER BY c.id DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
+
+$pageTitle = 'Coupon History';
+$activeNav = 'coupon_history.php';
+$pageSubtitle = 'Full audit trail of all generated, active, and redeemed prepaid vouchers.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Coupon History • Admin</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 
-<style>
-:root{
-    --bg:#0b0f19;
-    --panel:#0f172a;
-    --panel-2:#020617;
-    --border:#1f2937;
-    --text:#e5e7eb;
-    --muted:#9ca3af;
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">📜 Complete Voucher Logs (<?= count($history) ?>)</h2>
+        <a href="coupons.php" class="admin-btn admin-btn-primary admin-btn-sm">
+            ⚡ Generate Coupon
+        </a>
+    </div>
 
-    --green:#22c55e;
-    --gray:#64748b;
-    --blue:#38bdf8;
-    --purple:#a78bfa;
-}
-
-*{box-sizing:border-box;font-family:system-ui}
-
-body{
-    margin:0;
-    background:radial-gradient(circle at top,#0b0f19,#020617);
-    color:var(--text);
-}
-
-.wrap{
-    max-width:1280px;
-    margin:auto;
-    padding:28px;
-}
-
-/* ================= CARD ================= */
-.card{
-    background:linear-gradient(135deg,var(--panel),var(--panel-2));
-    border:1px solid var(--border);
-    border-radius:26px;
-    padding:26px;
-    box-shadow:0 30px 70px rgba(0,0,0,.65);
-}
-
-h2{
-    margin:0 0 20px;
-    font-size:22px;
-    font-weight:900;
-}
-
-/* ================= TABLE WRAP ================= */
-.table-wrap{
-    overflow-x:auto;
-    border-radius:18px;
-}
-
-/* ================= TABLE ================= */
-table{
-    width:100%;
-    border-collapse:separate;
-    border-spacing:0;
-    min-width:900px;
-}
-
-th{
-    padding:14px 18px;
-    font-size:12px;
-    text-transform:uppercase;
-    letter-spacing:.5px;
-    color:var(--muted);
-    background:#020617;
-    border-bottom:1px solid var(--border);
-    text-align:left;
-}
-
-td{
-    padding:18px;
-    font-size:14px;
-    border-bottom:1px solid var(--border);
-    vertical-align:middle;
-}
-
-tr:hover{
-    background:rgba(255,255,255,.035);
-}
-
-tr:last-child td{
-    border-bottom:none;
-}
-
-/* ================= CELLS ================= */
-.code{
-    font-weight:900;
-    letter-spacing:1px;
-    color:#facc15;
-}
-
-/* ================= BADGES ================= */
-.badge{
-    padding:6px 14px;
-    border-radius:999px;
-    font-size:11px;
-    font-weight:900;
-    display:inline-block;
-}
-
-.used{
-    background:rgba(34,197,94,.18);
-    color:var(--green);
-}
-
-.unused{
-    background:rgba(100,116,139,.25);
-    color:#cbd5f5;
-}
-
-.reg{
-    background:rgba(56,189,248,.18);
-    color:var(--blue);
-}
-
-.dep{
-    background:rgba(167,139,250,.18);
-    color:var(--purple);
-}
-
-/* ================= EMPTY ================= */
-.empty{
-    text-align:center;
-    color:var(--muted);
-    padding:40px;
-    font-weight:700;
-}
-
-/* ================= FOOTER LINK ================= */
-.back{
-    display:block;
-    margin-top:22px;
-    text-align:center;
-    color:var(--muted);
-    text-decoration:none;
-    font-weight:800;
-}
-.back:hover{
-    color:#c7d2fe;
-}
-</style>
-</head>
-
-<body>
-<div class="wrap">
-<div class="card">
-
-<h2>🎟 Coupon History</h2>
-
-<div class="table-wrap">
-<table>
-<tr>
-    <th>Code</th>
-    <th>Type</th>
-    <th>Amount</th>
-    <th>Status</th>
-    <th>Used By</th>
-    <th>Used At</th>
-</tr>
-
-<?php if ($history): foreach ($history as $c): ?>
-<tr>
-    <td class="code"><?= htmlspecialchars($c['code']) ?></td>
-
-    <td>
-        <?php if ($c['type'] === 'apply'): ?>
-            <span class="badge reg">REGISTRATION</span>
-        <?php else: ?>
-            <span class="badge dep">DEPOSIT</span>
-        <?php endif; ?>
-    </td>
-
-    <td><?= number_format($c['amount'],2) ?> BDT</td>
-
-    <td>
-        <?php if ($c['status'] === 'used'): ?>
-            <span class="badge used">USED</span>
-        <?php else: ?>
-            <span class="badge unused">UNUSED</span>
-        <?php endif; ?>
-    </td>
-
-    <td>
-        <?= $c['name']
-            ? htmlspecialchars($c['name'])." <span style='color:#9ca3af'>(".$c['phone'].")</span>"
-            : "—"
-        ?>
-    </td>
-
-    <td>
-        <?= $c['used_at']
-            ? date("d M Y, h:i A", strtotime($c['used_at']))
-            : "—"
-        ?>
-    </td>
-</tr>
-<?php endforeach; else: ?>
-<tr>
-    <td colspan="6" class="empty">No coupon history found</td>
-</tr>
-<?php endif; ?>
-</table>
+    <?php if (empty($history)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No coupons logged in history.</p>
+    <?php else: ?>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Coupon Code</th>
+                        <th>Type</th>
+                        <th>Value Amount</th>
+                        <th>Status</th>
+                        <th>Created Date</th>
+                        <th>Redeemed By</th>
+                        <th>Redemption Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($history as $c): ?>
+                        <tr>
+                            <td>
+                                <strong style="color: var(--admin-gold); font-family: monospace; font-size: 14px;">
+                                    <?= htmlspecialchars($c['code']) ?>
+                                </strong>
+                            </td>
+                            <td>
+                                <?php if ($c['type'] === 'apply'): ?>
+                                    <span class="admin-badge admin-badge-info">REGISTRATION</span>
+                                <?php else: ?>
+                                    <span class="admin-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc;">DEPOSIT</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <strong style="color: #ffffff;">৳ <?= number_format($c['amount'], 2) ?></strong>
+                            </td>
+                            <td>
+                                <?php if ($c['status'] === 'used'): ?>
+                                    <span class="admin-badge admin-badge-success">REDEEMED</span>
+                                <?php else: ?>
+                                    <span class="admin-badge admin-badge-warning">UNUSED</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span style="font-size: 12px; color: var(--admin-text-muted);">
+                                    <?= date("d M Y", strtotime($c['created_at'])) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <?php if (!empty($c['used_by_name'])): ?>
+                                    <strong><?= htmlspecialchars($c['used_by_name']) ?></strong>
+                                    <div style="font-size: 11px; color: var(--admin-text-dim);"><?= htmlspecialchars($c['used_by_phone'] ?? '') ?></div>
+                                <?php else: ?>
+                                    <span style="color: var(--admin-text-dim); font-size: 12px;">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if (!empty($c['used_at'])): ?>
+                                    <span style="font-size: 12px; color: var(--admin-text-muted);"><?= date("d M Y • h:i A", strtotime($c['used_at'])) ?></span>
+                                <?php else: ?>
+                                    <span style="color: var(--admin-text-dim); font-size: 12px;">—</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 </div>
 
-<a class="back" href="dashboard.php">← Back to Admin</a>
-
-</div>
-</div>
-</body>
-</html>
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

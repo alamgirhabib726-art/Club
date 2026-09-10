@@ -1,49 +1,44 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN EARN BUTTONS MANAGEMENT
+ */
 
-/* ================= ADMIN CHECK ================= */
-if (!isset($_SESSION['user_id'])) {
-    die("NO ACCESS");
-}
-
-$stmt = $db->prepare("SELECT role FROM users WHERE id=?");
-$stmt->execute([$_SESSION['user_id']]);
-if ($stmt->fetchColumn() !== 'admin') {
-    die("NO ACCESS");
-}
+require_once __DIR__ . "/guard.php";
 
 $msg = '';
 $err = '';
 
 /* ================= ADD BUTTON ================= */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add'])) {
-
     $title = trim($_POST['title'] ?? '');
     $link  = trim($_POST['link'] ?? '');
 
     if ($title === '' || $link === '') {
-        $err = "All fields are required";
+        $err = "All fields are required.";
     } elseif (!filter_var($link, FILTER_VALIDATE_URL)) {
-        $err = "Invalid URL";
+        $err = "Please provide a valid URL including http:// or https://.";
     } else {
-
         $count = (int)$db->query("SELECT COUNT(*) FROM earn_buttons")->fetchColumn();
 
         if ($count >= 100) {
-            $err = "Maximum 100 buttons allowed";
+            $err = "Maximum 100 earn buttons allowed.";
         } else {
             $db->prepare("
                 INSERT INTO earn_buttons (title, link, status)
                 VALUES (?, ?, 'active')
             ")->execute([$title, $link]);
 
-            $msg = "✅ Button added successfully";
+            try {
+                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
+                   ->execute([$admin['id'], "Added earn button: $title"]);
+            } catch (Throwable $t) {}
+
+            $msg = "Earn button added successfully.";
         }
     }
 }
 
-/* ================= TOGGLE ================= */
+/* ================= TOGGLE STATUS ================= */
 if (isset($_GET['toggle'])) {
     $id = (int)$_GET['toggle'];
 
@@ -60,108 +55,122 @@ if (isset($_GET['toggle'])) {
     exit;
 }
 
-/* ================= FETCH ================= */
-$rows = $db->query("
-    SELECT id, title, link, status
-    FROM earn_buttons
-    ORDER BY id DESC
-")->fetchAll(PDO::FETCH_ASSOC);
+/* ================= DELETE BUTTON ================= */
+if (isset($_GET['delete'])) {
+    $id = (int)$_GET['delete'];
+    $db->prepare("DELETE FROM earn_buttons WHERE id=?")->execute([$id]);
+
+    try {
+        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
+           ->execute([$admin['id'], "Deleted earn button #$id"]);
+    } catch (Throwable $t) {}
+
+    $msg = "Earn button deleted.";
+}
+
+/* ================= FETCH BUTTONS ================= */
+$buttons = $db->query("SELECT * FROM earn_buttons ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
+
+$pageTitle = 'Earn Buttons';
+$activeNav = 'earn.php';
+$pageSubtitle = 'Manage clickable sponsor links and tasks that reward members in the Earn section.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Earn Buttons • Admin</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body{font-family:system-ui;background:#f4f4f5;padding:20px}
-.card{
-  max-width:720px;
-  margin:auto;
-  background:#fff;
-  padding:22px;
-  border-radius:18px;
-  box-shadow:0 20px 40px rgba(0,0,0,.15)
-}
-input{
-  width:100%;
-  padding:12px;
-  margin-bottom:10px;
-  border:none;
-  border-radius:12px;
-  background:#f2f2f2
-}
-button{
-  padding:12px 16px;
-  border:none;
-  border-radius:12px;
-  background:#7c3aed;
-  color:#fff;
-  font-weight:700;
-  cursor:pointer
-}
-table{
-  width:100%;
-  border-collapse:collapse;
-  margin-top:16px
-}
-th,td{
-  padding:10px;
-  border-bottom:1px solid #e5e7eb;
-  text-align:left
-}
-.status-active{color:#16a34a;font-weight:700}
-.status-off{color:#dc2626;font-weight:700}
-.msg{color:#16a34a;font-weight:700}
-.err{color:#dc2626;font-weight:700}
-a{text-decoration:none;color:#2563eb;font-weight:600}
-</style>
-</head>
 
-<body>
+<?php if ($msg): ?>
+    <div class="admin-alert admin-alert-success">
+        <span>✅</span>
+        <div><?= htmlspecialchars($msg) ?></div>
+    </div>
+<?php endif; ?>
 
-<div class="card">
-<h3>💰 Earn Buttons (Admin)</h3>
+<?php if ($err): ?>
+    <div class="admin-alert admin-alert-danger">
+        <span>❌</span>
+        <div><?= htmlspecialchars($err) ?></div>
+    </div>
+<?php endif; ?>
 
-<?php if ($msg): ?><p class="msg"><?= htmlspecialchars($msg) ?></p><?php endif; ?>
-<?php if ($err): ?><p class="err"><?= htmlspecialchars($err) ?></p><?php endif; ?>
+<!-- ADD BUTTON -->
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">⚡ Add New Earn Button</h2>
+    </div>
 
-<form method="post">
-  <input name="title" placeholder="Button Title" required>
-  <input name="link" placeholder="https://example.com" required>
-  <button name="add">Add Button</button>
-</form>
+    <form method="post" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; align-items: flex-end;">
+        <input type="hidden" name="add" value="1">
+        <div class="admin-form-group" style="margin-bottom: 0;">
+            <label class="admin-label">Button Title / Task Name</label>
+            <input type="text" name="title" class="admin-input" placeholder="e.g. Visit Partner Website #1" required>
+        </div>
 
-<table>
-<tr>
-  <th>Title</th>
-  <th>Link</th>
-  <th>Status</th>
-  <th>Action</th>
-</tr>
+        <div class="admin-form-group" style="margin-bottom: 0;">
+            <label class="admin-label">Target URL</label>
+            <input type="url" name="link" class="admin-input" placeholder="https://..." required>
+        </div>
 
-<?php foreach ($rows as $r): ?>
-<tr>
-  <td><?= htmlspecialchars($r['title']) ?></td>
-  <td>
-    <a href="<?= htmlspecialchars($r['link']) ?>" target="_blank">
-      Open
-    </a>
-  </td>
-  <td class="status-<?= $r['status'] ?>">
-    <?= strtoupper($r['status']) ?>
-  </td>
-  <td>
-    <a href="?toggle=<?= (int)$r['id'] ?>">Toggle</a>
-  </td>
-</tr>
-<?php endforeach; ?>
-</table>
-
-<p style="margin-top:14px">
-<a href="dashboard.php">← Admin Dashboard</a>
-</p>
+        <div>
+            <button type="submit" class="admin-btn admin-btn-primary" style="width: 100%; height: 46px;">
+                ➕ Create Button
+            </button>
+        </div>
+    </form>
 </div>
 
-</body>
-</html>
+<!-- BUTTONS LIST -->
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">📜 Configured Earn Buttons (<?= count($buttons) ?>)</h2>
+    </div>
+
+    <?php if (empty($buttons)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No earn buttons configured yet.</p>
+    <?php else: ?>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Destination Link</th>
+                        <th>Status</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($buttons as $b): ?>
+                        <tr>
+                            <td>#<?= $b['id'] ?></td>
+                            <td><strong style="color: #ffffff;"><?= htmlspecialchars($b['title']) ?></strong></td>
+                            <td>
+                                <a href="<?= htmlspecialchars($b['link']) ?>" target="_blank" rel="noopener" style="color: var(--admin-info); font-size: 13px; text-decoration: underline;">
+                                    <?= htmlspecialchars(mb_strimwidth($b['link'], 0, 45, '...')) ?>
+                                </a>
+                            </td>
+                            <td>
+                                <?php if ($b['status'] === 'active'): ?>
+                                    <span class="admin-badge admin-badge-success">ACTIVE</span>
+                                <?php else: ?>
+                                    <span class="admin-badge admin-badge-danger">DISABLED</span>
+                                <?php endif; ?>
+                            </td>
+                            <td style="text-align: right;">
+                                <div style="display: inline-flex; gap: 6px;">
+                                    <a href="earn.php?toggle=<?= $b['id'] ?>" class="admin-btn admin-btn-sm admin-btn-secondary">
+                                        <?= $b['status'] === 'active' ? 'Turn Off' : 'Turn On' ?>
+                                    </a>
+                                    <a href="earn.php?delete=<?= $b['id'] ?>" class="admin-btn admin-btn-sm admin-btn-danger" onclick="return confirm('Delete this earn button?')">
+                                        Delete
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
+</div>
+
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

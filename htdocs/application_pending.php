@@ -1,6 +1,11 @@
 <?php
+/**
+ * UNMOOR CLUB - APPLICATION UNDER REVIEW
+ */
+
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
 /* ================= LOGIN ================= */
 if (!isset($_SESSION['user_id'])) {
@@ -38,7 +43,6 @@ $stmt = $db->prepare("
 $stmt->execute([$uid]);
 
 if (!$stmt->fetch()) {
-    // No pending apply payment → back to apply page
     header("Location: apply_payment.php");
     exit;
 }
@@ -46,91 +50,39 @@ if (!$stmt->fetch()) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Application Under Review • Unmoor Club</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-*{box-sizing:border-box;font-family:system-ui}
-body{
-    margin:0;
-    min-height:100vh;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    background:#020617;
-    color:#fff;
-}
-.card{
-    width:92%;
-    max-width:420px;
-    background:rgba(255,255,255,.06);
-    border-radius:26px;
-    padding:28px;
-    text-align:center;
-    box-shadow:0 25px 60px rgba(0,0,0,.55);
-    backdrop-filter: blur(14px);
-}
-.icon{
-    font-size:44px;
-    margin-bottom:14px;
-}
-h2{
-    margin:0 0 10px;
-    font-size:22px;
-}
-p{
-    font-size:15px;
-    color:#cbd5f5;
-    line-height:1.6;
-}
-.time{
-    margin-top:12px;
-    font-size:14px;
-    color:#94a3b8;
-}
-.btn{
-    display:block;
-    margin-top:18px;
-    padding:14px;
-    border-radius:18px;
-    text-decoration:none;
-    font-weight:800;
-    color:#022c22;
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-}
-.footer{
-    margin-top:18px;
-    font-size:13px;
-    color:#94a3b8;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>Application Under Review • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
-
 <body>
+    <div class="auth-wrap">
+        <div class="auth-card">
+            
+            <div style="font-size: 52px; margin-bottom: 12px;">⏳</div>
 
-<div class="card">
+            <h2 style="font-size: 20px; font-weight: 900; margin-bottom: 8px; color: #ffffff;">
+                Application Under Review
+            </h2>
 
-    <div class="icon">⏳</div>
+            <p style="font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 16px;">
+                Your application payment has been submitted successfully.<br>
+                Our administration team is reviewing your details.
+            </p>
 
-    <h2>Application Under Review</h2>
+            <div style="background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.25); border-radius: var(--radius-md); padding: 12px; margin-bottom: 20px; font-size: 13px; color: var(--accent-gold);">
+                ⏱ Verification usually takes <b>1–12 hours</b>
+            </div>
 
-    <p>
-        Your application payment has been received.<br>
-        Please wait for admin approval.
-    </p>
+            <a href="logout.php" class="btn btn-secondary btn-block" style="padding: 12px;">
+                🚪 Log Out
+            </a>
 
-    <div class="time">
-        ⏱ Usually takes <b>1–12 hours</b>
+            <div style="margin-top: 24px; font-size: 12px; color: var(--text-dim);">
+                Unmoor Club © <?= date("Y") ?>
+            </div>
+
+        </div>
     </div>
-
-    <a class="btn" href="logout.php">🚪 Logout</a>
-
-    <div class="footer">
-        Unmoor Club © <?= date("Y") ?>
-    </div>
-
-</div>
-
 </body>
 </html>

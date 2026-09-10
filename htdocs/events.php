@@ -1,6 +1,11 @@
 <?php
+/**
+ * UNMOOR CLUB - EVENTS
+ */
+
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
 /* ================= LOGIN ================= */
 if (!isset($_SESSION['user_id'])) {
@@ -20,12 +25,7 @@ $stmt = $db->prepare("
 $stmt->execute([$uid]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (
-    !$user ||
-    $user['status'] !== 'active' ||
-    $user['apply_status'] !== 'approved' ||
-    $user['role'] === 'system'
-) {
+if (!$user || ($user['status'] !== 'active' && $user['status'] !== 'premium') || $user['apply_status'] !== 'approved' || $user['role'] === 'system') {
     die("ACCESS DENIED");
 }
 
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $eventId = (int)($_POST['event_id'] ?? 0);
 
     $stmt = $db->prepare("
-        SELECT id, coin_cost
+        SELECT id, title, coin_cost
         FROM events
         WHERE id=? AND status='active'
         LIMIT 1
@@ -47,8 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$event) {
         $error = "Event not available";
-    } elseif ($user['coins'] < $event['coin_cost']) {
-        $error = "Not enough coins";
+    } elseif ((float)$user['coins'] < (float)$event['coin_cost']) {
+        $error = "Not enough coins to join this event";
     } else {
 
         $chk = $db->prepare("
@@ -59,72 +59,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $chk->execute([$uid, $eventId]);
 
         if ($chk->fetchColumn()) {
-            $error = "You already joined this event";
+            $error = "You have already joined this event";
         } else {
 
             try {
                 $db->beginTransaction();
 
-                /* JOIN EVENT */
                 $db->prepare("
-                    INSERT INTO event_participants (user_id, event_id)
-                    VALUES (?, ?)
+                    INSERT INTO event_participants (user_id, event_id, created_at)
+                    VALUES (?, ?, NOW())
                 ")->execute([$uid, $eventId]);
 
-                /* CUT USER */
                 $db->prepare("
                     UPDATE users SET coins = coins - ? WHERE id = ?
                 ")->execute([$event['coin_cost'], $uid]);
 
-                /* SYSTEM ID */
                 $systemId = (int)$db->query("
                     SELECT id FROM users WHERE role='system' LIMIT 1
                 ")->fetchColumn();
 
-                /* ADD TO SYSTEM */
-                $db->prepare("
-                    UPDATE users SET coins = coins + ?
-                    WHERE id = ?
-                ")->execute([$event['coin_cost'], $systemId]);
+                if ($systemId) {
+                    $db->prepare("
+                        UPDATE users SET coins = coins + ?
+                        WHERE id = ?
+                    ")->execute([$event['coin_cost'], $systemId]);
 
-                /* USER HISTORY (EVENT PAYMENT) */
+                    $db->prepare("
+                        INSERT INTO coin_history
+                            (user_id, amount, type,
+                             source_user_id, source_name, source_number, created_at)
+                        VALUES
+                            (?, ?, 'event_in', ?, ?, ?, NOW())
+                    ")->execute([
+                        $systemId,
+                        $event['coin_cost'],
+                        $user['id'],
+                        $user['name'],
+                        $user['phone']
+                    ]);
+                }
+
                 $db->prepare("
                     INSERT INTO coin_history
                         (user_id, amount, type,
-                         source_user_id, source_name, source_number)
+                         source_user_id, source_name, source_number, created_at)
                     VALUES
-                        (?, ?, 'event_out', ?, ?, ?)
+                        (?, ?, 'event_out', ?, ?, ?, NOW())
                 ")->execute([
                     $uid,
                     -$event['coin_cost'],
-                    $systemId,
-                    'Unmoor Club',
+                    $systemId ?: $uid,
+                    'Unmoor Club Event',
                     'SYSTEM'
-                ]);
-
-                /* SYSTEM HISTORY (FROM USER) */
-                $db->prepare("
-                    INSERT INTO coin_history
-                        (user_id, amount, type,
-                         source_user_id, source_name, source_number)
-                    VALUES
-                        (?, ?, 'event_in', ?, ?, ?)
-                ")->execute([
-                    $systemId,
-                    $event['coin_cost'],
-                    $user['id'],
-                    $user['name'],
-                    $user['phone']
                 ]);
 
                 $db->commit();
 
                 $user['coins'] -= $event['coin_cost'];
-                $msg = "🎉 Joined event successfully";
+                $msg = "🎉 Successfully registered for \"" . htmlspecialchars($event['title']) . "\"!";
 
             } catch (Exception $e) {
                 $db->rollBack();
-                $error = "Something went wrong";
+                $error = "Something went wrong. Please try again.";
             }
         }
     }
@@ -137,168 +133,90 @@ $events = $db->query("
     WHERE status='active'
     ORDER BY id DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
+
+/* CHECK PARTICIPATION */
+$myEvents = [];
+try {
+    $stmt = $db->prepare("SELECT event_id FROM event_participants WHERE user_id = ?");
+    $stmt->execute([$uid]);
+    $myEvents = $stmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (Throwable $t) {}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Events • Unmoor</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<style>
-:root{
-    --bg:#0b0f19;
-    --card:#121826;
-    --border:#1f2937;
-    --text:#e5e7eb;
-    --muted:#9ca3af;
-    --gold:#facc15;
-    --green:#22c55e;
-    --red:#ef4444;
-}
-
-*{box-sizing:border-box;font-family:system-ui}
-
-body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-}
-
-.wrap{
-    max-width:520px;
-    margin:auto;
-    padding:18px;
-}
-
-/* HEADER */
-.header{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:18px;
-}
-.header h2{
-    margin:0;
-    font-size:22px;
-    font-weight:900;
-}
-.coins{
-    background:rgba(250,204,21,.15);
-    color:var(--gold);
-    padding:6px 14px;
-    border-radius:999px;
-    font-weight:900;
-    font-size:13px;
-}
-
-/* MESSAGE */
-.msg{
-    background:rgba(34,197,94,.15);
-    color:var(--green);
-    padding:12px;
-    border-radius:14px;
-    font-weight:800;
-    margin-bottom:14px;
-}
-.err{
-    background:rgba(239,68,68,.15);
-    color:var(--red);
-    padding:12px;
-    border-radius:14px;
-    font-weight:800;
-    margin-bottom:14px;
-}
-
-/* EVENT CARD */
-.card{
-    background:linear-gradient(135deg,#0f172a,#020617);
-    border:1px solid var(--border);
-    border-radius:22px;
-    padding:18px;
-    margin-bottom:16px;
-    box-shadow:0 20px 40px rgba(0,0,0,.45);
-}
-
-.card h3{
-    margin:0 0 6px;
-    font-size:16px;
-    font-weight:900;
-}
-
-.card p{
-    margin:0 0 12px;
-    font-size:13px;
-    color:var(--muted);
-    line-height:1.5;
-}
-
-.cost{
-    font-weight:900;
-    margin-bottom:14px;
-}
-
-/* BUTTON */
-button{
-    width:100%;
-    padding:14px;
-    border:none;
-    border-radius:16px;
-    background:linear-gradient(135deg,#fde68a,#facc15);
-    color:#422006;
-    font-weight:900;
-    font-size:15px;
-    cursor:pointer;
-}
-
-/* EMPTY */
-.empty{
-    text-align:center;
-    color:var(--muted);
-    padding:28px;
-}
-
-/* BACK */
-.back{
-    display:block;
-    margin-top:20px;
-    text-align:center;
-    color:var(--muted);
-    text-decoration:none;
-    font-weight:700;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>Club Events • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
-
 <body>
-<div class="wrap">
+    <div class="page-wrap">
+        
+        <?= render_page_header("Club Events", "/dashboard.php") ?>
 
-<div class="header">
-    <h2>🎉 Events</h2>
-    <div class="coins">🪙 <?= number_format($user['coins'],2) ?></div>
-</div>
+        <!-- CURRENT BALANCE -->
+        <div class="card" style="text-align: center; padding: 18px 14px; margin-bottom: 14px;">
+            <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 800;">Available Balance</div>
+            <div style="font-size: 26px; font-weight: 900; color: <?= $user['coins'] < 0 ? 'var(--accent-red)' : 'var(--accent-green)' ?>; margin-top: 4px;">
+                🪙 <?= number_format($user['coins'], 2) ?>
+            </div>
+        </div>
 
-<?php if($msg): ?><div class="msg"><?= htmlspecialchars($msg) ?></div><?php endif; ?>
-<?php if($error): ?><div class="err"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+        <?php if ($msg): ?>
+            <div class="alert alert-success" style="margin-bottom: 14px;">
+                <?= htmlspecialchars($msg) ?>
+            </div>
+        <?php endif; ?>
 
-<?php if($events): foreach($events as $e): ?>
-<div class="card">
-    <h3><?= htmlspecialchars($e['title']) ?></h3>
-    <p><?= htmlspecialchars($e['description']) ?></p>
+        <?php if ($error): ?>
+            <div class="alert alert-danger" style="margin-bottom: 14px;">
+                <?= htmlspecialchars($error) ?>
+            </div>
+        <?php endif; ?>
 
-    <div class="cost">🪙 <?= number_format($e['coin_cost'],2) ?> coins</div>
+        <?php if ($events): ?>
+            <?php foreach ($events as $e): ?>
+                <?php $hasJoined = in_array($e['id'], $myEvents); ?>
+                <div class="card" style="margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                        <h3 style="font-size: 16px; font-weight: 900; color: #ffffff; margin: 0;">
+                            🎉 <?= htmlspecialchars($e['title']) ?>
+                        </h3>
+                        <div style="background: rgba(234, 179, 8, 0.15); color: var(--accent-gold); padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 900; white-space: nowrap;">
+                            🪙 <?= number_format($e['coin_cost'], 2) ?>
+                        </div>
+                    </div>
 
-    <form method="post">
-        <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
-        <button>Participate</button>
-    </form>
-</div>
-<?php endforeach; else: ?>
-<div class="card empty">😔 No events available</div>
-<?php endif; ?>
+                    <p style="font-size: 13.5px; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+                        <?= nl2br(htmlspecialchars($e['description'])) ?>
+                    </p>
 
-<a class="back" href="dashboard.php">← Back to Dashboard</a>
+                    <?php if ($hasJoined): ?>
+                        <button class="btn btn-secondary btn-block" disabled style="padding: 12px; opacity: 0.7;">
+                            ✓ Already Registered
+                        </button>
+                    <?php else: ?>
+                        <form method="post">
+                            <input type="hidden" name="event_id" value="<?= $e['id'] ?>">
+                            <button type="submit" class="btn btn-gold btn-block" style="padding: 12px;">
+                                Join Event (🪙 <?= number_format($e['coin_cost'], 2) ?>)
+                            </button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div class="card" style="text-align: center; color: var(--text-muted); padding: 36px 0;">
+                <div style="font-size: 36px; margin-bottom: 8px;">🎊</div>
+                No active events at this time. Stay tuned!
+            </div>
+        <?php endif; ?>
 
-</div>
+        <?= render_support_widget() ?>
+
+    </div>
+
+    <?php require_once __DIR__ . "/bottom_nav.php"; ?>
 </body>
 </html>

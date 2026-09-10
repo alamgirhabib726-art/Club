@@ -1,12 +1,11 @@
 <?php
 /**
- * =========================================
- * REGISTER — UNMOOR CLUB (COUPON ENABLED)
- * =========================================
+ * UNMOOR CLUB - REGISTER
  */
 
 require_once __DIR__ . "/db.php";
 require_once __DIR__ . "/core/config.php";
+require_once __DIR__ . "/core/components.php";
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -14,23 +13,18 @@ if (session_status() === PHP_SESSION_NONE) {
 
 $errors = [];
 
-// Preserve input
 $name   = '';
 $phone  = '';
 $couponInput = '';
 
-/* -----------------------------------------
-   HANDLE FORM SUBMISSION
------------------------------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $name     = trim($_POST['name'] ?? '');
-    $phone    = trim($_POST['phone'] ?? '');
-    $password = $_POST['password'] ?? '';
+    $name        = trim($_POST['name'] ?? '');
+    $phone       = trim($_POST['phone'] ?? '');
+    $password    = $_POST['password'] ?? '';
     $couponInput = trim($_POST['coupon'] ?? '');
 
-    /* ---------- VALIDATION ---------- */
-
+    /* VALIDATION */
     if (strlen($name) < 3) {
         $errors[] = "Name must be at least 3 characters.";
     }
@@ -43,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Password must be at least " . PASSWORD_MIN_LENGTH . " characters.";
     }
 
-    /* ---------- CHECK EXISTING USER ---------- */
+    /* CHECK EXISTING USER */
     if (!$errors) {
         $stmt = $db->prepare("SELECT id FROM users WHERE phone = ? LIMIT 1");
         $stmt->execute([$phone]);
@@ -52,11 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    /* ---------- COUPON VALIDATION ---------- */
+    /* COUPON VALIDATION */
     $coupon = null;
 
     if (!$errors && $couponInput !== '') {
-
         $stmt = $db->prepare("
             SELECT id, amount, used_by
             FROM coupons
@@ -75,21 +68,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    /* ---------- CREATE USER ---------- */
+    /* CREATE USER */
     if (!$errors) {
-
         $db->beginTransaction();
 
         try {
-
             $status = 'pending';
             $apply  = 'pending';
             $coins  = 0;
             $cycleStart = null;
+            $systemCoins = 0;
 
-            /* ===== COUPON AUTO APPROVAL ===== */
             if ($coupon) {
-
                 $status = 'active';
                 $apply  = 'approved';
                 $cycleStart = date('Y-m-d H:i:s');
@@ -98,10 +88,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $coins = 5 + max(0, $extraCoins);
 
                 $systemCoins = ($coupon['amount'] / 10) - $coins;
-
             }
 
-            /* CREATE USER */
             $stmt = $db->prepare("
                 INSERT INTO users
                     (name, phone, password, role, status, apply_status, coins, coin_cycle_start, created_at)
@@ -120,17 +108,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $uid = (int)$db->lastInsertId();
 
-            /* ===== COUPON POST LOGIC ===== */
             if ($coupon) {
-
-                /* MARK COUPON USED */
                 $db->prepare("
                     UPDATE coupons
                     SET used_by = ?, used_at = NOW(), status = 'used'
                     WHERE id = ?
                 ")->execute([$uid, $coupon['id']]);
 
-                /* SYSTEM COINS */
                 if ($systemCoins > 0) {
                     $db->prepare("
                         UPDATE users
@@ -139,7 +123,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ")->execute([$systemCoins]);
                 }
 
-                /* PAYMENT LOG */
                 $db->prepare("
                     INSERT INTO payments
                     (user_id, type, amount, status, source, created_at)
@@ -152,7 +135,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $db->commit();
 
-            /* AUTO LOGIN */
             session_regenerate_id(true);
             $_SESSION['user_id'] = $uid;
             $_SESSION['role']    = 'user';
@@ -171,55 +153,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Register • <?= SITE_NAME ?></title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="assets/style.css">
+    <meta charset="UTF-8">
+    <title>Create Account • <?= SITE_NAME ?></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
-
 <body>
+    <div class="auth-wrap">
+        <div class="auth-card">
+            
+            <div class="auth-logo">
+                <img src="assets/logo/logo.png" alt="Unmoor Club">
+            </div>
 
-<div class="auth-card">
+            <h2 style="font-size: 22px; font-weight: 900; margin-bottom: 6px; color: #ffffff;">Create Account</h2>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+                Instant access with registration coupon or application
+            </p>
 
-  <div class="auth-logo">
-    <img src="assets/logo/logo.png" alt="Unmoor Club">
-  </div>
+            <?php if ($errors): ?>
+                <div class="alert alert-danger" style="margin-bottom: 16px; text-align: left;">
+                    <?php foreach ($errors as $e): ?>
+                        • <?= htmlspecialchars($e) ?><br>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
 
-  <h2>Create Account</h2>
-  <p style="font-size:13px; opacity:.8;">Instant access after registration</p>
+            <form method="post" action="register.php">
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="name" class="form-control" placeholder="John Doe" value="<?= htmlspecialchars($name) ?>" required>
+                </div>
 
-  <?php if ($errors): ?>
-    <div class="error-box">
-      <?php foreach ($errors as $e): ?>
-        • <?= htmlspecialchars($e) ?><br>
-      <?php endforeach; ?>
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Phone Number</label>
+                    <input type="text" name="phone" class="form-control" placeholder="01XXXXXXXXX" value="<?= htmlspecialchars($phone) ?>" required>
+                </div>
+
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-control" placeholder="At least 6 characters" required>
+                </div>
+
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Coupon Code (optional)</label>
+                    <input type="text" name="coupon" class="form-control" placeholder="Have an instant access coupon?" value="<?= htmlspecialchars($couponInput) ?>">
+                </div>
+
+                <button type="submit" class="btn btn-gold btn-block" style="margin-top: 10px; padding: 14px;">
+                    Register Now
+                </button>
+            </form>
+
+            <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color); font-size: 13.5px; color: var(--text-muted);">
+                Already have an account? 
+                <a href="login.php" style="color: var(--accent-gold); font-weight: 800; text-decoration: none;">Log In</a>
+            </div>
+
+        </div>
     </div>
-  <?php endif; ?>
-
-  <form method="post" novalidate>
-
-    <input type="text" name="name" placeholder="Full Name"
-           value="<?= htmlspecialchars($name) ?>" required>
-
-    <input type="text" name="phone" placeholder="Phone Number"
-           value="<?= htmlspecialchars($phone) ?>" required>
-
-    <input type="password" name="password" placeholder="Password" required>
-
-    <input type="text" name="coupon"
-           placeholder="Coupon Code (optional)"
-           value="<?= htmlspecialchars($couponInput) ?>">
-
-    <button type="submit" class="submit-btn">
-      Register
-    </button>
-  </form>
-
-  <div style="margin-top:14px;font-size:13px;">
-    Already have an account? <a href="login.php">Login</a>
-  </div>
-
-</div>
-
 </body>
 </html>

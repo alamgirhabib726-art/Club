@@ -1,29 +1,22 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN PURCHASE ORDERS MANAGEMENT
+ */
 
-/* =========================
-   ADMIN / SUB-ADMIN CHECK
-========================= */
-$stmt = $db->prepare("SELECT role FROM users WHERE id=?");
-$stmt->execute([$_SESSION['user_id'] ?? 0]);
-$role = $stmt->fetchColumn();
+require_once __DIR__ . "/guard.php";
 
-if (!in_array($role, ['admin','sub_admin'])) {
-    die("ACCESS DENIED");
-}
-
-/* =========================
-   FETCH PURCHASE ORDERS
-========================= */
+/* FETCH PURCHASE ORDERS */
 $stmt = $db->prepare("
     SELECT 
         p.id,
         p.amount,
         p.status,
         p.created_at,
-        u.name,
-        u.phone
+        p.method,
+        p.source,
+        u.name as user_name,
+        u.phone as user_phone,
+        u.coins as user_coins
     FROM payments p
     JOIN users u ON u.id = p.user_id
     WHERE p.type = 'purchase'
@@ -31,127 +24,76 @@ $stmt = $db->prepare("
 ");
 $stmt->execute();
 $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$pageTitle = 'Purchase Orders';
+$activeNav = 'purchase_orders.php';
+$pageSubtitle = 'Orders placed by members purchasing products with coin balance.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Purchase Orders</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 
-<style>
-body{
-    margin:0;
-    background:#0b0f19;
-    color:#e5e7eb;
-    font-family:system-ui;
-}
-.wrap{
-    max-width:900px;
-    margin:auto;
-    padding:20px;
-}
-.card{
-    background:#121826;
-    border:1px solid #1f2937;
-    border-radius:20px;
-    padding:18px;
-}
-h2{margin:0 0 14px}
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">🛍️ Purchase Orders Queue (<?= count($orders) ?>)</h2>
+        <a href="products.php" class="admin-btn admin-btn-secondary admin-btn-sm">
+            📦 Products Catalog
+        </a>
+    </div>
 
-table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:14px;
-}
-th,td{
-    padding:12px;
-    border-bottom:1px solid #1f2937;
-    text-align:left;
-    font-size:14px;
-}
-th{
-    color:#9ca3af;
-    font-weight:700;
-}
-.status{
-    font-weight:800;
-}
-.pending{color:#facc15}
-.approved{color:#22c55e}
-.rejected{color:#ef4444}
-
-.btn{
-    padding:6px 12px;
-    border-radius:10px;
-    text-decoration:none;
-    font-weight:800;
-    font-size:13px;
-    margin-right:6px;
-}
-.approve{background:#22c55e;color:#022c22}
-.reject{background:#ef4444;color:#fff}
-
-.back{
-    display:block;
-    margin-top:16px;
-    text-align:center;
-    color:#9ca3af;
-    text-decoration:none;
-}
-</style>
-</head>
-
-<body>
-
-<div class="wrap">
-<div class="card">
-
-<h2>🛒 Purchase Orders</h2>
-
-<table>
-<tr>
-    <th>User</th>
-    <th>Phone</th>
-    <th>Coins</th>
-    <th>Status</th>
-    <th>Date</th>
-    <th>Action</th>
-</tr>
-
-<?php if($orders): foreach($orders as $o): ?>
-<tr>
-    <td><?=htmlspecialchars($o['name'])?></td>
-    <td><?=htmlspecialchars($o['phone'])?></td>
-    <td>🪙 <?=number_format($o['amount'],2)?></td>
-    <td class="status <?=$o['status']?>"><?=strtoupper($o['status'])?></td>
-    <td><?=date("d M Y, h:i A", strtotime($o['created_at']))?></td>
-    <td>
-        <?php if($o['status']==='pending'): ?>
-            <a class="btn approve"
-               href="purchase_action.php?id=<?=$o['id']?>&action=approve">
-               Approve
-            </a>
-            <a class="btn reject"
-               href="purchase_action.php?id=<?=$o['id']?>&action=reject">
-               Reject
-            </a>
-        <?php else: ?>
-            —
-        <?php endif; ?>
-    </td>
-</tr>
-<?php endforeach; else: ?>
-<tr>
-    <td colspan="6">No purchase orders</td>
-</tr>
-<?php endif; ?>
-</table>
-
-<a class="back" href="dashboard.php">← Admin Dashboard</a>
-
-</div>
+    <?php if (empty($orders)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No purchase orders received yet.</p>
+    <?php else: ?>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Member</th>
+                        <th>Amount / Cost</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($orders as $o): ?>
+                        <tr>
+                            <td><strong style="color: #ffffff;">#<?= $o['id'] ?></strong></td>
+                            <td>
+                                <strong><?= htmlspecialchars($o['user_name']) ?></strong>
+                                <div style="font-size: 11px; color: var(--admin-text-dim);">📱 <?= htmlspecialchars($o['user_phone']) ?></div>
+                            </td>
+                            <td>
+                                <strong style="color: var(--admin-gold);">🪙 <?= number_format($o['amount'], 2) ?></strong>
+                            </td>
+                            <td>
+                                <?php
+                                    $st = strtolower($o['status']);
+                                    $badge = ($st === 'approved') ? 'admin-badge-success' : (($st === 'pending') ? 'admin-badge-warning' : 'admin-badge-danger');
+                                ?>
+                                <span class="admin-badge <?= $badge ?>"><?= strtoupper($st) ?></span>
+                            </td>
+                            <td><span style="font-size: 12px; color: var(--admin-text-muted);"><?= date("d M Y • h:i A", strtotime($o['created_at'])) ?></span></td>
+                            <td style="text-align: right;">
+                                <?php if ($o['status'] === 'pending'): ?>
+                                    <div style="display: inline-flex; gap: 6px;">
+                                        <a class="admin-btn admin-btn-sm admin-btn-success" href="purchase_action.php?id=<?= $o['id'] ?>&action=approve" onclick="return confirm('Approve order #<?= $o['id'] ?>?')">
+                                            ✅ Approve
+                                        </a>
+                                        <a class="admin-btn admin-btn-sm admin-btn-danger" href="purchase_action.php?id=<?= $o['id'] ?>&action=reject" onclick="return confirm('Reject order #<?= $o['id'] ?>?')">
+                                            ❌ Reject
+                                        </a>
+                                    </div>
+                                <?php else: ?>
+                                    <span style="font-size: 12px; color: var(--admin-text-dim);">Processed</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 </div>
 
-</body>
-</html>
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

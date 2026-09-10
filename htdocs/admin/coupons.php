@@ -1,227 +1,193 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN COUPONS MANAGEMENT & GENERATOR
+ */
 
-/* ================= ADMIN GUARD ================= */
-$stmt = $db->prepare("SELECT role FROM users WHERE id=?");
-$stmt->execute([$_SESSION['user_id'] ?? 0]);
-if ($stmt->fetchColumn() !== 'admin') {
-    die("ACCESS DENIED");
-}
+require_once __DIR__ . "/guard.php";
 
-/* ================= COUPON CODE GENERATOR (UNIQUE) ================= */
+/* ================= COUPON CODE GENERATOR ================= */
 function generateUniqueCoupon(PDO $db, string $type): string {
-
     $letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     $numbers = '123456789';
 
     do {
-        $rand =
-            $letters[rand(0,25)] .
-            $numbers[rand(0,8)] .
-            $letters[rand(0,25)] .
-            $numbers[rand(0,8)];
-
+        $rand = $letters[rand(0,25)] . $numbers[rand(0,8)] . $letters[rand(0,25)] . $numbers[rand(0,8)];
         $code = 'UNM-' . ($type === 'apply' ? 'REG' : 'DEP') . '-' . $rand;
 
         $chk = $db->prepare("SELECT id FROM coupons WHERE code=? LIMIT 1");
         $chk->execute([$code]);
-
     } while ($chk->fetch());
 
     return $code;
 }
 
-/* ================= CREATE COUPON ================= */
 $msg = $err = "";
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    $amount = (float)($_POST['amount'] ?? 0);
-    $type   = $_POST['type'] ?? '';
-
-    if ($amount <= 0) {
-        $err = "❌ Invalid amount";
-    } elseif (!in_array($type, ['apply','deposit'], true)) {
-        $err = "❌ Invalid coupon type";
-    } else {
-
-        try {
-
-            $code = generateUniqueCoupon($db, $type);
-
-            $db->prepare("
-                INSERT INTO coupons
-                (code, amount, type, status, created_at)
-                VALUES (?, ?, ?, 'active', NOW())
-            ")->execute([$code, $amount, $type]);
-
-            /* POST → REDIRECT → GET (ANTI REFRESH DUPLICATE) */
-            $_SESSION['coupon_success'] = "✅ Coupon created: $code";
-            header("Location: coupons.php");
-            exit;
-
-        } catch (Exception $e) {
-            $err = "❌ Coupon creation failed";
-        }
-    }
-}
-
-/* FLASH MESSAGE */
 if (isset($_SESSION['coupon_success'])) {
     $msg = $_SESSION['coupon_success'];
     unset($_SESSION['coupon_success']);
 }
 
-/* ================= FETCH COUPONS ================= */
+/* ================= CREATE COUPON ================= */
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $amount = (float)($_POST['amount'] ?? 0);
+    $type   = $_POST['type'] ?? '';
+
+    if ($amount <= 0) {
+        $err = "Please enter a valid amount.";
+    } elseif (!in_array($type, ['apply','deposit'], true)) {
+        $err = "Invalid coupon type selected.";
+    } else {
+        try {
+            $code = generateUniqueCoupon($db, $type);
+
+            $db->prepare("
+                INSERT INTO coupons (code, amount, type, status, created_at)
+                VALUES (?, ?, ?, 'active', datetime('now'))
+            ")->execute([$code, $amount, $type]);
+
+            try {
+                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
+                   ->execute([$admin['id'], "Created coupon $code for ৳$amount"]);
+            } catch (Throwable $t) {}
+
+            $_SESSION['coupon_success'] = "Generated coupon code: $code";
+            header("Location: coupons.php");
+            exit;
+        } catch (Throwable $e) {
+            $err = "Failed to generate coupon: " . $e->getMessage();
+        }
+    }
+}
+
+/* ================= FETCH ACTIVE & RECENT COUPONS ================= */
 $coupons = $db->query("
-    SELECT code, amount, type, status, created_at
-    FROM coupons
-    ORDER BY id DESC
+    SELECT c.id, c.code, c.amount, c.type, c.status, c.created_at, c.used_at, u.name as used_by_name, u.phone as used_by_phone
+    FROM coupons c
+    LEFT JOIN users u ON u.id = c.used_by
+    ORDER BY c.id DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
+
+$pageTitle = 'Coupon Management';
+$activeNav = 'coupons.php';
+$pageSubtitle = 'Create unique prepaid registration and deposit redemption coupons.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Coupons • Admin</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
 
-<style>
-body{
-    margin:0;
-    background:#0b0f19;
-    color:#e5e7eb;
-    font-family:system-ui;
-}
-.wrap{
-    max-width:1100px;
-    margin:auto;
-    padding:24px;
-}
-.card{
-    background:#121826;
-    border-radius:22px;
-    padding:22px;
-    margin-bottom:24px;
-    box-shadow:0 20px 40px rgba(0,0,0,.45);
-}
-h2{margin-top:0}
-input,select{
-    width:100%;
-    padding:14px;
-    border-radius:14px;
-    border:1px solid #1f2937;
-    background:#020617;
-    color:#e5e7eb;
-    margin-bottom:14px;
-}
-button{
-    padding:14px;
-    width:100%;
-    border:none;
-    border-radius:16px;
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-    color:#022c22;
-    font-weight:900;
-}
-.msg{color:#22c55e;font-weight:800;margin-bottom:10px}
-.err{color:#ef4444;font-weight:800;margin-bottom:10px}
+<?php if ($msg): ?>
+    <div class="admin-alert admin-alert-success">
+        <span>✅</span>
+        <div><?= htmlspecialchars($msg) ?></div>
+    </div>
+<?php endif; ?>
 
-table{
-    width:100%;
-    border-collapse:collapse;
-}
-th,td{
-    padding:14px;
-    border-bottom:1px solid #1f2937;
-    font-size:14px;
-}
-th{color:#9ca3af}
-.badge{
-    padding:5px 12px;
-    border-radius:999px;
-    font-size:12px;
-    font-weight:800;
-}
-.active{background:#22c55e;color:#022c22}
-.used{background:#64748b;color:#fff}
-.apply{background:#0ea5e9;color:#022c22}
-.deposit{background:#fbbf24;color:#422006}
+<?php if ($err): ?>
+    <div class="admin-alert admin-alert-danger">
+        <span>❌</span>
+        <div><?= htmlspecialchars($err) ?></div>
+    </div>
+<?php endif; ?>
 
-.table-responsive{
-    width:100%;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-}
+<!-- GENERATE COUPON -->
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">🎟️ Generate New Redeemable Coupon</h2>
+    </div>
 
-@media (max-width: 768px){
-    .wrap{ padding:12px; }
-    .card{ padding:16px; border-radius:18px; }
-}
+    <form method="post" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; align-items: flex-end;">
+        <div class="admin-form-group" style="margin-bottom: 0;">
+            <label class="admin-label">Coupon Purpose</label>
+            <select name="type" class="admin-select" required>
+                <option value="apply">Account Application / Registration</option>
+                <option value="deposit">Account Coin Deposit</option>
+            </select>
+        </div>
 
-.back{
-    display:block;
-    margin-top:18px;
-    text-align:center;
-    color:#9ca3af;
-    text-decoration:none;
-}
-</style>
-</head>
+        <div class="admin-form-group" style="margin-bottom: 0;">
+            <label class="admin-label">Value Amount (৳ BDT)</label>
+            <input type="number" step="1" min="1" name="amount" class="admin-input" placeholder="e.g. 500" required>
+        </div>
 
-<body>
-<div class="wrap">
-
-<div class="card">
-    <h2>🎟 Create Coupon</h2>
-
-    <?php if($msg): ?><div class="msg"><?= htmlspecialchars($msg) ?></div><?php endif; ?>
-    <?php if($err): ?><div class="err"><?= htmlspecialchars($err) ?></div><?php endif; ?>
-
-    <form method="post">
-        <input type="number" step="0.01" name="amount" placeholder="Amount (BDT)" required>
-
-        <select name="type" required>
-            <option value="">Select Coupon Type</option>
-            <option value="apply">Apply</option>
-            <option value="deposit">Deposit</option>
-        </select>
-
-        <button>Create Coupon</button>
+        <div>
+            <button type="submit" class="admin-btn admin-btn-primary" style="width: 100%; height: 46px;">
+                ⚡ Generate Unique Code
+            </button>
+        </div>
     </form>
 </div>
 
-<div class="card">
-    <h2>📜 Coupon List</h2>
-
-    <div class="table-responsive">
-    <table>
-        <tr>
-            <th>Code</th>
-            <th>Amount</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Created</th>
-        </tr>
-
-        <?php if ($coupons): foreach ($coupons as $c): ?>
-        <tr>
-            <td><strong><?= htmlspecialchars($c['code']) ?></strong></td>
-            <td><?= number_format($c['amount'],2) ?> BDT</td>
-            <td><span class="badge <?= $c['type'] ?>"><?= strtoupper($c['type']) ?></span></td>
-            <td><span class="badge <?= $c['status'] ?>"><?= strtoupper($c['status']) ?></span></td>
-            <td><?= date("d M Y, h:i A", strtotime($c['created_at'])) ?></td>
-        </tr>
-        <?php endforeach; else: ?>
-        <tr><td colspan="5">No coupons yet</td></tr>
-        <?php endif; ?>
-    </table>
+<!-- ALL COUPONS TABLE -->
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">📜 All Generated Coupons (<?= count($coupons) ?>)</h2>
+        <a href="coupon_history.php" class="admin-btn admin-btn-secondary admin-btn-sm">
+            📜 Redemption History
+        </a>
     </div>
 
-    <a class="back" href="dashboard.php">← Back to Admin</a>
+    <?php if (empty($coupons)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No coupons created yet.</p>
+    <?php else: ?>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Coupon Code</th>
+                        <th>Type</th>
+                        <th>Value</th>
+                        <th>Status</th>
+                        <th>Created Date</th>
+                        <th>Redeemed By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($coupons as $c): ?>
+                        <tr>
+                            <td>
+                                <strong style="color: var(--admin-gold); font-family: monospace; font-size: 15px; letter-spacing: 1px;">
+                                    <?= htmlspecialchars($c['code']) ?>
+                                </strong>
+                                <button type="button" data-copy="<?= htmlspecialchars($c['code']) ?>" class="admin-btn admin-btn-secondary admin-btn-sm" style="margin-left: 8px; padding: 2px 8px; font-size: 11px;">
+                                    📋 Copy
+                                </button>
+                            </td>
+                            <td>
+                                <?php if ($c['type'] === 'apply'): ?>
+                                    <span class="admin-badge admin-badge-info">REGISTRATION</span>
+                                <?php else: ?>
+                                    <span class="admin-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc;">DEPOSIT</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <strong style="color: #ffffff;">৳ <?= number_format($c['amount'], 2) ?></strong>
+                            </td>
+                            <td>
+                                <?php if ($c['status'] === 'used'): ?>
+                                    <span class="admin-badge admin-badge-success">REDEEMED</span>
+                                <?php else: ?>
+                                    <span class="admin-badge admin-badge-warning">ACTIVE / UNUSED</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span style="font-size: 12px; color: var(--admin-text-muted);">
+                                    <?= date("d M Y • h:i A", strtotime($c['created_at'])) ?>
+                                </span>
+                            </td>
+                            <td>
+                                <?php if (!empty($c['used_by_name'])): ?>
+                                    <strong><?= htmlspecialchars($c['used_by_name']) ?></strong>
+                                    <div style="font-size: 11px; color: var(--admin-text-dim);"><?= htmlspecialchars($c['used_by_phone'] ?? '') ?></div>
+                                <?php else: ?>
+                                    <span style="color: var(--admin-text-dim); font-size: 12px;">—</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 </div>
 
-</div>
-</body>
-</html>
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

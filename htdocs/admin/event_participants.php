@@ -1,21 +1,17 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN EVENT PARTICIPATION DIRECTORY
+ */
 
-/* ADMIN CHECK */
-$stmt = $db->prepare("SELECT role FROM users WHERE id=?");
-$stmt->execute([$_SESSION['user_id'] ?? 0]);
-if ($stmt->fetchColumn() !== 'admin') {
-    die("ACCESS DENIED");
-}
+require_once __DIR__ . "/guard.php";
 
 /* FETCH PARTICIPANTS */
 $stmt = $db->prepare("
     SELECT 
-        e.title,
+        e.title as event_title,
         e.coin_cost,
-        u.name,
-        u.phone,
+        u.name as user_name,
+        u.phone as user_phone,
         ep.joined_at
     FROM event_participants ep
     JOIN events e ON e.id = ep.event_id
@@ -24,58 +20,50 @@ $stmt = $db->prepare("
 ");
 $stmt->execute();
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$pageTitle = 'Event Participants';
+$activeNav = 'event_participants.php';
+$pageSubtitle = 'Complete directory of members registered for active and past events.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Event Participation • Admin</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-body{margin:0;background:#0b0f19;color:#e5e7eb;font-family:system-ui}
-.wrap{max-width:900px;margin:auto;padding:20px}
-.card{background:#121826;border-radius:20px;padding:20px}
-table{width:100%;border-collapse:collapse}
-th,td{padding:12px;border-bottom:1px solid #1f2937}
-th{color:#9ca3af;font-size:13px}
-.yellow{color:#facc15;font-weight:700}
-</style>
-</head>
 
-<body>
-<div class="wrap">
-<div class="card">
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">🎉 Registered Participants (<?= count($rows) ?>)</h2>
+        <a href="events.php" class="admin-btn admin-btn-secondary admin-btn-sm">
+            ← Manage Events
+        </a>
+    </div>
 
-<h2>🎉 Event Participants</h2>
-
-<div class="table-responsive">
-<table>
-<tr>
-    <th>Event</th>
-    <th>Cost</th>
-    <th>User</th>
-    <th>Phone</th>
-    <th>Joined At</th>
-</tr>
-
-<?php if($rows): foreach($rows as $r): ?>
-<tr>
-    <td><?=htmlspecialchars($r['title'])?></td>
-    <td class="yellow">🪙 <?=number_format($r['coin_cost'],2)?></td>
-    <td><?=htmlspecialchars($r['name'])?></td>
-    <td><?=htmlspecialchars($r['phone'])?></td>
-    <td><?=date("d M Y, h:i A", strtotime($r['joined_at']))?></td>
-</tr>
-<?php endforeach; else: ?>
-<tr><td colspan="5">No participants yet</td></tr>
-<?php endif; ?>
-
-</table>
+    <?php if (empty($rows)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No participants have joined any events yet.</p>
+    <?php else: ?>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Event Name</th>
+                        <th>Entry Fee</th>
+                        <th>Member Name</th>
+                        <th>Phone Number</th>
+                        <th>Joined At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($rows as $r): ?>
+                        <tr>
+                            <td><strong><?= htmlspecialchars($r['event_title']) ?></strong></td>
+                            <td><strong style="color: var(--admin-gold);">🪙 <?= number_format($r['coin_cost'], 2) ?></strong></td>
+                            <td><strong><?= htmlspecialchars($r['user_name']) ?></strong></td>
+                            <td><span style="color: var(--admin-text-dim);"><?= htmlspecialchars($r['user_phone']) ?></span></td>
+                            <td><span style="font-size: 12px; color: var(--admin-text-muted);"><?= date("d M Y • h:i A", strtotime($r['joined_at'])) ?></span></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 </div>
 
-<a href="dashboard.php" style="display:inline-block;margin-top:16px;color:#38bdf8;text-decoration:none;font-weight:500">← Back to Admin</a>
-
-</div>
-</div>
-</body>
-</html>
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

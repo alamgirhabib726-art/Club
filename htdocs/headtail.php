@@ -1,6 +1,11 @@
 <?php
+/**
+ * UNMOOR CLUB - HEAD / TAIL GAME
+ */
+
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
 /* ================= LOGIN ================= */
 if (!isset($_SESSION['user_id'])) {
@@ -20,22 +25,15 @@ $stmt = $db->prepare("
 $stmt->execute([$uid]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (
-    !$user ||
-    $user['status'] !== 'active' ||
-    $user['apply_status'] !== 'approved' ||
-    $user['role'] === 'system'
-) {
+if (!$user || ($user['status'] !== 'active' && $user['status'] !== 'premium') || $user['apply_status'] !== 'approved' || $user['role'] === 'system') {
     die("ACCESS DENIED");
 }
 
 $coins = (float)$user['coins'];
 
-/* ================= FLASH ================= */
 $resultMsg  = $_SESSION['game_msg']  ?? '';
 $resultSide = $_SESSION['game_side'] ?? '';
 $error      = $_SESSION['game_err']  ?? '';
-
 unset($_SESSION['game_msg'], $_SESSION['game_side'], $_SESSION['game_err']);
 
 /* ================= POST LOCK ================= */
@@ -52,12 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     /* VALIDATION */
     if ($bet < 0.1) {
-        $_SESSION['game_err'] = "❌ Minimum bet is 0.1";
+        $_SESSION['game_err'] = "❌ Minimum bet is 0.1 coin";
         goto REDIRECT;
     }
 
     if ($bet > $coins) {
-        $_SESSION['game_err'] = "❌ Insufficient coins";
+        $_SESSION['game_err'] = "❌ Insufficient coins balance";
         goto REDIRECT;
     }
 
@@ -136,11 +134,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                ->execute([$profit,$systemId]);
 
             $db->prepare("
-                INSERT INTO coin_history (user_id, amount, type)
-                VALUES (?, ?, 'game_win')
+                INSERT INTO coin_history (user_id, amount, type, created_at)
+                VALUES (?, ?, 'game_win', NOW())
             ")->execute([$uid,$profit]);
 
-            $_SESSION['game_msg']  = "🎉 WIN +🪙".number_format($profit,2);
+            $_SESSION['game_msg']  = "🎉 WIN +🪙" . number_format($profit, 2);
             $_SESSION['game_side'] = $choice;
 
         } else {
@@ -152,11 +150,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                ->execute([$bet,$systemId]);
 
             $db->prepare("
-                INSERT INTO coin_history (user_id, amount, type)
-                VALUES (?, ?, 'game_loss')
+                INSERT INTO coin_history (user_id, amount, type, created_at)
+                VALUES (?, ?, 'game_loss', NOW())
             ")->execute([$uid,-$bet]);
 
-            $_SESSION['game_msg']  = "❌ LOSS -🪙".number_format($bet,2);
+            $_SESSION['game_msg']  = "❌ LOSS -🪙" . number_format($bet, 2);
             $_SESSION['game_side'] = ($choice === 'head') ? 'tail' : 'head';
         }
 
@@ -164,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } catch (Exception $e) {
         $db->rollBack();
-        $_SESSION['game_err'] = "❌ Game failed";
+        $_SESSION['game_err'] = "❌ Game transaction failed";
     }
 
 REDIRECT:
@@ -174,325 +172,71 @@ REDIRECT:
 }
 ?>
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Head / Tail • Unmoor</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<style>
-body{
-    margin:0;
-    background:radial-gradient(circle at top,#020617,#000);
-    font-family:system-ui;
-    color:#e5e7eb;
-}
-
-/* MAIN CARD */
-.card{
-    max-width:420px;
-    margin:40px auto;
-    background:linear-gradient(135deg,#0f172a,#020617);
-    border:1px solid #1f2937;
-    border-radius:26px;
-    padding:26px;
-    box-shadow:0 30px 60px rgba(0,0,0,.75);
-}
-
-/* TITLE */
-h3{
-    text-align:center;
-    margin:0;
-    font-weight:900;
-    letter-spacing:.5px;
-}
-
-/* BALANCE */
-.balance{
-    text-align:center;
-    font-weight:900;
-    margin:14px 0 6px;
-    font-size:15px;
-    color: <?= $coins < 0 ? '#ef4444' : '#22c55e' ?>;
-}
-
-/* COIN DISPLAY */
-.coin{
-    width:120px;
-    height:120px;
-    border-radius:50%;
-    background:linear-gradient(135deg,#fde047,#facc15);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:900;
-    color:#422006;
-    margin:20px auto;
-    font-size:22px;
-    box-shadow:
-        0 18px 40px rgba(250,204,21,.55),
-        inset 0 3px 6px rgba(255,255,255,.5);
-}
-.coin.head{
-    background:linear-gradient(135deg,#fde047,#facc15);
-}
-.coin.tail{
-    background:linear-gradient(135deg,#93c5fd,#3b82f6);
-    color:#0f172a;
-    box-shadow:
-        0 18px 40px rgba(59,130,246,.55),
-        inset 0 3px 6px rgba(255,255,255,.4);
-}
-
-/* BET INPUT (PREMIUM FIX) */
-input{
-    width:100%;
-    padding:15px 16px;
-    border-radius:16px;
-    border:1px solid #1f2937;
-    background:#020617;
-    color:#e5e7eb;
-    font-size:15px;
-    font-weight:800;
-    margin:14px 0;
-    outline:none;
-}
-input::placeholder{
-    color:#9ca3af;
-}
-input:focus{
-    border-color:#22c55e;
-    box-shadow:0 0 0 3px rgba(34,197,94,.25);
-}
-
-/* BUTTONS */
-button{
-    width:100%;
-    padding:15px;
-    margin-top:12px;
-    border:none;
-    border-radius:18px;
-    font-weight:900;
-    font-size:15px;
-    cursor:pointer;
-    transition:transform .15s ease, box-shadow .15s ease;
-}
-
-/* HEAD */
-.headBtn{
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-    color:#022c22;
-    box-shadow:0 14px 30px rgba(34,197,94,.45);
-}
-.headBtn:active{
-    transform:scale(.97);
-}
-
-/* TAIL */
-.tailBtn{
-    background:linear-gradient(135deg,#3b82f6,#2563eb);
-    color:#fff;
-    box-shadow:0 14px 30px rgba(59,130,246,.45);
-}
-.tailBtn:active{
-    transform:scale(.97);
-}
-
-/* MESSAGES */
-.msg{
-    text-align:center;
-    margin-top:14px;
-    font-weight:900;
-    font-size:14px;
-}
-.win{color:#22c55e}
-.err{color:#ef4444}
-
-/* BACK LINK */
-a{
-    display:block;
-    text-align:center;
-    margin-top:18px;
-    color:#9ca3af;
-    text-decoration:none;
-    font-weight:700;
-}
-
-/* =========================
-   MANUAL BOTTOM NAV (HEAVY)
-========================= */
-
-.manual-nav{
-    position:fixed;
-    bottom:0;
-    left:0;
-    right:0;
-
-    height:96px;
-    background:linear-gradient(
-        180deg,
-        rgba(15,23,42,.88),
-        rgba(2,6,23,.95)
-    );
-
-    backdrop-filter:blur(14px);
-    border-top:1px solid rgba(255,255,255,.08);
-
-    display:flex;
-    justify-content:space-around;
-    align-items:flex-end;
-
-    padding-bottom:12px;
-    z-index:999;
-}
-
-/* BUTTON */
-.manual-nav .nav-btn{
-    flex:1;
-    text-decoration:none;
-    color:#e5e7eb;
-    font-size:13px;
-    font-weight:900;
-
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:8px;
-}
-
-/* ICON (HEAVY) */
-.manual-nav .icon{
-    width:52px;
-    height:52px;
-    border-radius:16px;
-
-    background:#020617;
-    color:#e5e7eb;
-
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    font-size:22px;
-
-    border:1px solid rgba(255,255,255,.14);
-
-    box-shadow:
-        0 10px 22px rgba(0,0,0,.6),
-        inset 0 1px 0 rgba(255,255,255,.08);
-}
-
-/* ACTIVE SIDE BUTTON */
-.manual-nav .nav-btn.active{
-    color:#22c55e;
-}
-.manual-nav .nav-btn.active .icon{
-    background:rgba(34,197,94,.22);
-    color:#22c55e;
-    box-shadow:
-        0 0 18px rgba(34,197,94,.6),
-        inset 0 1px 0 rgba(255,255,255,.25);
-}
-
-/* CENTER BUY */
-.manual-nav .nav-btn.center{
-    transform:translateY(-6px);
-}
-
-.manual-nav .nav-btn.center .icon{
-    width:78px;
-    height:78px;
-    font-size:34px;
-    border-radius:22px;
-
-    background:linear-gradient(180deg,#fde68a,#f59e0b);
-    color:#422006;
-
-    box-shadow:
-        0 16px 36px rgba(245,158,11,.75),
-        inset 0 2px 0 rgba(255,255,255,.5);
-}
-
-/* BUY TEXT */
-.manual-nav .nav-btn.center span{
-    color:#facc15;
-    font-weight:900;
-}
-
-/* SPACE FOR NAV */
-.wrap{
-    padding-bottom:160px;
-}
-/* PREVENT RANDOM GREEN — BUT EXCLUDE BUY */
-.manual-nav .nav-btn:not(.active):not(.center) .icon{
-    background:#020617;
-    color:#e5e7eb;
-    box-shadow:
-        0 6px 14px rgba(0,0,0,.45);
-}
-</style>
+    <meta charset="UTF-8">
+    <title>Head / Tail • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
-
 <body>
-<div class="card">
+    <div class="page-wrap">
+        
+        <?= render_page_header("Head / Tail Game", "/dashboard.php") ?>
 
-<h3>🎲 Head / Tail</h3>
-<div class="balance">🪙 Coins: <?=number_format($coins,2)?></div>
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 800;">Available Coins</div>
+            <div style="font-size: 26px; font-weight: 900; color: <?= $coins < 0 ? 'var(--accent-red)' : 'var(--accent-green)' ?>; margin-top: 4px;">
+                🪙 <?= number_format($coins, 2) ?>
+            </div>
 
-<div class="coin <?= htmlspecialchars($resultSide) ?>">
-    <?= $resultSide ? strtoupper(htmlspecialchars($resultSide)) : 'COIN' ?>
-</div>
+            <!-- COIN VISUAL -->
+            <div style="width: 120px; height: 120px; border-radius: 50%; margin: 20px auto; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; background: <?= $resultSide === 'tail' ? 'linear-gradient(135deg, #60a5fa, #2563eb)' : 'linear-gradient(135deg, #fde047, #eab308)' ?>; color: <?= $resultSide === 'tail' ? '#ffffff' : '#422006' ?>; box-shadow: 0 16px 36px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.4);">
+                <?= $resultSide ? strtoupper(htmlspecialchars($resultSide)) : '🎲 COIN' ?>
+            </div>
 
-<?php if (!empty($error)): ?>
-    <div class="msg err"><?= htmlspecialchars($error) ?></div>
-<?php endif; ?>
+            <?php if (!empty($error)): ?>
+                <div class="alert alert-danger" style="margin-bottom: 12px;">
+                    <?= htmlspecialchars($error) ?>
+                </div>
+            <?php endif; ?>
 
-<?php if (!empty($resultMsg)): ?>
-    <div class="msg <?= str_contains($resultMsg, 'WIN') ? 'win' : 'err' ?>">
-        <?= htmlspecialchars($resultMsg) ?>
+            <?php if (!empty($resultMsg)): ?>
+                <div class="alert <?= str_contains($resultMsg, 'WIN') ? 'alert-success' : 'alert-danger' ?>" style="margin-bottom: 12px; font-size: 16px; font-weight: 900;">
+                    <?= htmlspecialchars($resultMsg) ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($coins >= 0.1): ?>
+                <form method="post">
+                    <div class="form-group" style="text-align: left;">
+                        <label class="form-label">Enter Bet Amount (Coins)</label>
+                        <input name="bet" type="number" min="0.1" step="0.1" class="form-control" placeholder="e.g. 1.0" required>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px;">
+                        <button type="submit" name="choice" value="head" class="btn btn-primary" style="padding: 14px; font-size: 15px;">
+                            👑 HEAD
+                        </button>
+                        <button type="submit" name="choice" value="tail" class="btn btn-gold" style="padding: 14px; font-size: 15px;">
+                            🪙 TAIL
+                        </button>
+                    </div>
+                </form>
+            <?php else: ?>
+                <div class="alert alert-danger" style="margin-top: 14px;">
+                    🔒 Insufficient coins to place bets. Please deposit first.
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <?= render_support_widget() ?>
+
     </div>
-<?php endif; ?>
 
-<?php if($coins >= 0.1): ?>
-<form method="post">
-    <input name="bet" type="number" min="0.1" step="0.1" placeholder="Bet Coins" required>
-    <button class="headBtn" name="choice" value="head">HEAD</button>
-    <button class="tailBtn" name="choice" value="tail">TAIL</button>
-</form>
-<?php else: ?>
-<div class="msg err">🔒 Not enough coins</div>
-<?php endif; ?>
-
-</div>
-
-<div class="manual-nav">
-
-    <a class="nav-btn" href="dashboard.php">
-        <div class="icon">🏠</div>
-        <span>Home</span>
-    </a>
-
-    <a class="nav-btn" href="earn.php">
-        <div class="icon">💰</div>
-        <span>Earn</span>
-    </a>
-
-    <a class="nav-btn center" href="purchase.php">
-        <div class="icon">🛒</div>
-        <span>Buy</span>
-    </a>
-
-    <!-- ✅ ACTIVE PAGE -->
-    <a class="nav-btn active" href="headtail.php">
-        <div class="icon">🎲</div>
-        <span>Head/Tail</span>
-    </a>
-
-    <a class="nav-btn" href="account.php">
-        <div class="icon">👤</div>
-        <span>Account</span>
-    </a>
-
-</div>
-
+    <?php 
+    $currentPage = 'headtail';
+    require_once __DIR__ . "/bottom_nav.php"; 
+    ?>
 </body>
 </html>

@@ -1,6 +1,9 @@
 <?php
+/**
+ * UNMOOR CLUB - ADMIN SYSTEM CONFIGURATION
+ */
+
 require_once __DIR__ . "/guard.php";
-require_once __DIR__ . "/../db.php";
 
 $msg = "";
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -14,67 +17,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($k === 'submit') continue;
         $stmt->execute([$k, trim((string)$v)]);
     }
-    $msg = "Settings updated successfully!";
+
+    try {
+        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
+           ->execute([$admin['id'], "Updated global system settings"]);
+    } catch (Throwable $t) {}
+
+    $msg = "System parameters saved successfully.";
 }
 
 $settings = [];
 try {
     $settings = $db->query("SELECT k, v FROM settings WHERE k IS NOT NULL")->fetchAll(PDO::FETCH_KEY_PAIR);
 } catch (Throwable $e) {}
+
+$pageTitle = 'System Settings';
+$activeNav = 'settings.php';
+$pageSubtitle = 'Configure global platform economic parameters, VIP pricing, and game multipliers.';
+
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Settings • Admin</title>
-<link rel="stylesheet" href="../assets/admin.css">
-<style>
-.wrap{max-width:700px;margin:30px auto;padding:16px}
-.card{background:#020617;border:1px solid #1f2937;border-radius:18px;padding:28px;box-shadow:0 20px 40px rgba(0,0,0,.6)}
-h2{margin:0 0 20px;color:#f8fafc;font-size:22px;display:flex;align-items:center;gap:10px}
-.form-group{margin-bottom:20px}
-label{display:block;margin-bottom:8px;font-size:14px;color:#9ca3af;font-weight:500}
-input{width:100%;box-sizing:border-box;padding:12px 14px;background:#0b0f19;border:1px solid #1f2937;border-radius:10px;color:#f8fafc;font-size:15px;outline:none}
-input:focus{border-color:#38bdf8}
-.btn-save{width:100%;padding:14px;background:#38bdf8;color:#020617;border:none;border-radius:12px;font-weight:600;font-size:16px;cursor:pointer;margin-top:10px;transition:background .2s}
-.btn-save:hover{background:#0284c7;color:#fff}
-.alert-success{background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#86efac;padding:12px 16px;border-radius:10px;margin-bottom:20px;font-size:14px}
-.back{display:inline-block;margin-top:20px;color:#38bdf8;text-decoration:none;font-weight:500}
-.back:hover{text-decoration:underline}
-.help-text{font-size:12px;color:#64748b;margin-top:6px}
-</style>
-</head>
-<body>
 
-<div class="wrap">
-  <div class="card">
-    <h2>⚙️ System Settings</h2>
+<?php if ($msg): ?>
+    <div class="admin-alert admin-alert-success">
+        <span>✅</span>
+        <div><?= htmlspecialchars($msg) ?></div>
+    </div>
+<?php endif; ?>
 
-    <?php if ($msg): ?>
-      <div class="alert-success"><?= htmlspecialchars($msg) ?></div>
-    <?php endif; ?>
+<div class="admin-card" style="max-width: 680px;">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">⚙️ Global Configuration Parameters</h2>
+    </div>
 
     <form method="post">
-      <div class="form-group">
-        <label for="premium_price">💎 Premium VIP Price (৳)</label>
-        <input type="number" step="any" id="premium_price" name="premium_price" value="<?= htmlspecialchars($settings['premium_price'] ?? '300') ?>" required>
-        <div class="help-text">Base cost for users upgrading to Premium VIP status.</div>
-      </div>
+        <div class="admin-form-group">
+            <label class="admin-label" for="premium_price">💎 Premium VIP Upgrade Price (৳ BDT)</label>
+            <input type="number" step="any" id="premium_price" name="premium_price" value="<?= htmlspecialchars($settings['premium_price'] ?? '300') ?>" class="admin-input" required>
+            <div style="font-size: 12px; color: var(--admin-text-dim); margin-top: 4px;">Cost charged to members when applying for VIP status.</div>
+        </div>
 
-      <div class="form-group">
-        <label for="headtail_percent">🪙 Head & Tail Payout Return (%)</label>
-        <input type="number" step="any" id="headtail_percent" name="headtail_percent" value="<?= htmlspecialchars($settings['headtail_percent'] ?? '80') ?>" required>
-        <div class="help-text">Win percentage multiplier for coin flip earnings.</div>
-      </div>
+        <div class="admin-form-group">
+            <label class="admin-label" for="headtail_percent">🪙 Head &amp; Tail Wager Win Multiplier (%)</label>
+            <input type="number" step="any" id="headtail_percent" name="headtail_percent" value="<?= htmlspecialchars($settings['headtail_percent'] ?? '80') ?>" class="admin-input" required>
+            <div style="font-size: 12px; color: var(--admin-text-dim); margin-top: 4px;">Payout percentage return awarded to players on a winning coin flip (default 80%).</div>
+        </div>
 
-      <button type="submit" class="btn-save">Save Settings</button>
+        <div class="admin-form-group">
+            <label class="admin-label" for="apply_fee">📝 Member Application Fee (৳ BDT)</label>
+            <input type="number" step="any" id="apply_fee" name="apply_fee" value="<?= htmlspecialchars($settings['apply_fee'] ?? '100') ?>" class="admin-input">
+            <div style="font-size: 12px; color: var(--admin-text-dim); margin-top: 4px;">Standard registration approval deposit fee.</div>
+        </div>
+
+        <button type="submit" class="admin-btn admin-btn-primary" style="margin-top: 10px;">
+            💾 Save Global Settings
+        </button>
     </form>
-
-    <a class="back" href="dashboard.php">← Back to Admin</a>
-  </div>
 </div>
 
-</body>
-</html>
-
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

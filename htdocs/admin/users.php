@@ -1,10 +1,16 @@
 <?php
+/**
+ * UNMOOR CLUB - ADMIN USER DIRECTORY & MANAGEMENT
+ */
+
 require_once __DIR__ . "/guard.php";
-require_once __DIR__ . "/../db.php";
+
+$msg = '';
+$error = '';
 
 /* ======================
-   BAN / UNBAN ACTION
-====================== */
+   BAN / UNBAN / APPROVE ACTIONS
+   ====================== */
 if (isset($_GET['action'], $_GET['id'])) {
     $id = (int)$_GET['id'];
 
@@ -13,305 +19,254 @@ if (isset($_GET['action'], $_GET['id'])) {
             $db->prepare("
                 UPDATE users
                 SET status = 'banned'
-                WHERE id = ?
-                  AND role NOT IN ('admin','sub_admin','system')
+                WHERE id = ? AND role NOT IN ('admin','system')
             ")->execute([$id]);
+
+            try {
+                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
+                   ->execute([$admin['id'], "Banned User #$id"]);
+            } catch (Throwable $t) {}
+
+            $msg = "User #$id has been banned.";
         }
 
         if ($_GET['action'] === 'unban') {
             $db->prepare("
                 UPDATE users
                 SET status = 'active'
-                WHERE id = ?
-                  AND role NOT IN ('admin','sub_admin','system')
+                WHERE id = ? AND role NOT IN ('admin','system')
             ")->execute([$id]);
+
+            try {
+                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
+                   ->execute([$admin['id'], "Unbanned User #$id"]);
+            } catch (Throwable $t) {}
+
+            $msg = "User #$id has been activated.";
+        }
+
+        if ($_GET['action'] === 'approve') {
+            $db->prepare("
+                UPDATE users
+                SET status = 'active', apply_status = 'approved'
+                WHERE id = ?
+            ")->execute([$id]);
+
+            try {
+                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
+                   ->execute([$admin['id'], "Approved User Application #$id"]);
+            } catch (Throwable $t) {}
+
+            $msg = "User #$id application approved.";
         }
     }
-
-    header("Location: users.php");
-    exit;
 }
 
 /* ======================
-   FETCH USERS
-====================== */
-$users = $db->query("
-    SELECT
-        id, name, phone, role, status,
-        apply_status, coins, coin_cycle_start
-    FROM users
-    ORDER BY id DESC
-")->fetchAll(PDO::FETCH_ASSOC);
+   SEARCH & FILTER
+   ====================== */
+$search = trim($_GET['q'] ?? '');
+$filterRole = trim($_GET['role'] ?? '');
+$filterStatus = trim($_GET['status'] ?? '');
 
-$now = time();
+$sql = "SELECT id, name, phone, email, role, status, apply_status, coins, balance, coin_cycle_start, created_at FROM users WHERE 1=1";
+$params = [];
 
-/* ======================
-   NEGATIVE USERS COUNT
-====================== */
+if ($search !== '') {
+    $sql .= " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR id = ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $params[] = is_numeric($search) ? (int)$search : 0;
+}
+
+if ($filterRole !== '') {
+    $sql .= " AND role = ?";
+    $params[] = $filterRole;
+}
+
+if ($filterStatus !== '') {
+    if ($filterStatus === 'pending') {
+        $sql .= " AND apply_status = 'pending'";
+    } elseif ($filterStatus === 'debt') {
+        $sql .= " AND coins < 0";
+    } else {
+        $sql .= " AND status = ?";
+        $params[] = $filterStatus;
+    }
+}
+
+$sql .= " ORDER BY id DESC";
+
+$stmt = $db->prepare($sql);
+$stmt->execute($params);
+$users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Counts
+$totalCount = count($users);
 $negativeCount = 0;
 foreach ($users as $u) {
     if ($u['role'] === 'user' && $u['coins'] < 0) {
         $negativeCount++;
     }
 }
-?>
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Users • Admin</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
 
-<style>
-/* ================= BASE ================= */
-body{
-    margin:0;
-    background:#0b0f19;
-    color:#e5e7eb;
-    font-family:system-ui;
-}
-.wrap{
-    max-width:1280px;
-    margin:auto;
-    padding:26px;
-}
+$pageTitle = 'User Directory';
+$activeNav = 'users.php';
+$pageSubtitle = 'Manage member accounts, permissions, balances, application approvals, and statuses.';
 
-/* ================= CARD ================= */
-.card{
-    background:linear-gradient(135deg,#0f172a,#020617);
-    border-radius:24px;
-    padding:26px;
-    box-shadow:0 20px 45px rgba(0,0,0,.55);
-}
-
-/* ================= HEADER ================= */
-.header{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:18px;
-}
-.header h2{
-    margin:0;
-    font-size:22px;
-    font-weight:900;
-}
-.header .alert{
-    color:#fecaca;
-    font-weight:900;
-    background:rgba(239,68,68,.12);
-    padding:8px 14px;
-    border-radius:999px;
-    font-size:13px;
-}
-
-/* ================= TABLE ================= */
-table{
-    width:100%;
-    border-collapse:separate;
-    border-spacing:0;
-    overflow:hidden;
-}
-
-th{
-    font-size:12px;
-    text-transform:uppercase;
-    letter-spacing:.4px;
-    color:#9ca3af;
-    padding:14px 16px;
-    border-bottom:1px solid #1f2937;
-    text-align:left;
-    background:#020617;
-}
-
-td{
-    padding:16px;
-    border-bottom:1px solid #1f2937;
-    font-size:14px;
-}
-
-tr:last-child td{
-    border-bottom:none;
-}
-
-/* ================= BADGES ================= */
-.badge{
-    padding:6px 12px;
-    border-radius:999px;
-    font-size:11px;
-    font-weight:900;
-    display:inline-block;
-}
-.active{background:#22c55e;color:#022c22}
-.banned{background:#ef4444;color:#fff}
-.pending{background:#64748b;color:#fff}
-.system{background:#0ea5e9;color:#022c22}
-.negative-badge{background:#7f1d1d;color:#fecaca}
-
-/* ================= COINS ================= */
-.coin{
-    font-weight:900;
-}
-.coin.negative{color:#ef4444}
-.coin.positive{color:#facc15}
-
-/* ================= TIME ================= */
-.time{
-    font-size:12px;
-    color:#9ca3af;
-}
-
-/* ================= ACTIONS ================= */
-.actions{
-    display:flex;
-    gap:10px;
-}
-
-a.btn{
-    padding:8px 16px;
-    border-radius:12px;
-    font-size:13px;
-    font-weight:900;
-    text-decoration:none;
-    min-width:90px;
-    text-align:center;
-}
-
-.ban{
-    background:linear-gradient(135deg,#ef4444,#dc2626);
-    color:#fff;
-}
-.unban{
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-    color:#022c22;
-}
-
-.disabled{
-    opacity:.4;
-    pointer-events:none;
-}
-
-/* ================= NEGATIVE ROW ================= */
-tr.negative-row{
-    background:rgba(127,29,29,.35);
-}
-
-.table-responsive{
-    width:100%;
-    overflow-x:auto;
-    -webkit-overflow-scrolling:touch;
-}
-
-@media (max-width: 768px){
-    .wrap{
-        padding:12px;
-    }
-    .card{
-        padding:16px;
-        border-radius:18px;
-    }
-    .header{
-        flex-direction:column;
-        align-items:flex-start;
-        gap:8px;
-    }
-}
-</style>
-</head>
-
-<body>
-<div class="wrap">
-<div class="card">
-
-<div class="header">
-    <h2>👥 Users</h2>
-    <div class="alert">🔻 Negative Balance: <?= $negativeCount ?></div>
-</div>
-
-<div class="table-responsive">
-<table>
-<tr>
-    <th>Name</th>
-    <th>Phone</th>
-    <th>Role</th>
-    <th>Status</th>
-    <th>Coins</th>
-    <th>Next Cut</th>
-    <th>Action</th>
-</tr>
-
-<?php foreach ($users as $u): ?>
-
-<?php
-$nextCut = "—";
-
-if (
-    $u['role'] === 'user' &&
-    $u['status'] === 'active' &&
-    $u['apply_status'] === 'approved' &&
-    !empty($u['coin_cycle_start'])
-) {
-    $start = strtotime($u['coin_cycle_start']);
-    $nextTs = $start + (floor(($now - $start) / 86400) + 1) * 86400;
-    $remain = max(0, $nextTs - $now);
-    $nextCut = floor($remain / 3600)."h ".floor(($remain % 3600) / 60)."m";
-}
-
-$coinClass = ($u['coins'] < 0) ? 'negative' : 'positive';
-$rowClass  = ($u['coins'] < 0 && $u['role'] === 'user') ? 'negative-row' : '';
+require_once __DIR__ . "/layout_top.php";
 ?>
 
-<tr class="<?= $rowClass ?>">
-    <td><?= htmlspecialchars($u['name']) ?></td>
-    <td><?= htmlspecialchars($u['phone']) ?></td>
+<?php if ($msg): ?>
+    <div class="admin-alert admin-alert-success">
+        <span>✅</span>
+        <div><?= htmlspecialchars($msg) ?></div>
+    </div>
+<?php endif; ?>
 
-    <td>
-        <?php if ($u['role'] === 'system'): ?>
-            <span class="badge system">SYSTEM</span>
-        <?php else: ?>
-            <?= strtoupper(htmlspecialchars($u['role'])) ?>
-        <?php endif; ?>
-    </td>
+<!-- SEARCH & STATS BAR -->
+<div class="admin-card" style="padding: 18px 22px;">
+    <form method="get" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; flex: 1;">
+            <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" class="admin-input" placeholder="Search by name, phone, email, or User ID..." style="max-width: 320px;">
+            
+            <select name="status" class="admin-select" style="max-width: 160px;">
+                <option value="">All Statuses</option>
+                <option value="active" <?= $filterStatus === 'active' ? 'selected' : '' ?>>Active</option>
+                <option value="pending" <?= $filterStatus === 'pending' ? 'selected' : '' ?>>Pending Approval</option>
+                <option value="banned" <?= $filterStatus === 'banned' ? 'selected' : '' ?>>Banned</option>
+                <option value="debt" <?= $filterStatus === 'debt' ? 'selected' : '' ?>>Debt (Negative Coins)</option>
+            </select>
 
-    <td>
-        <?php if ($u['status'] === 'active' && $u['apply_status'] === 'approved'): ?>
-            <span class="badge active">ACTIVE</span>
-        <?php elseif ($u['status'] === 'banned'): ?>
-            <span class="badge banned">BANNED</span>
-        <?php else: ?>
-            <span class="badge pending">PENDING</span>
-        <?php endif; ?>
-    </td>
+            <select name="role" class="admin-select" style="max-width: 140px;">
+                <option value="">All Roles</option>
+                <option value="user" <?= $filterRole === 'user' ? 'selected' : '' ?>>User</option>
+                <option value="premium" <?= $filterRole === 'premium' ? 'selected' : '' ?>>VIP / Premium</option>
+                <option value="admin" <?= $filterRole === 'admin' ? 'selected' : '' ?>>Admin</option>
+            </select>
 
-    <td class="coin <?= $coinClass ?>">
-        🪙 <?= number_format($u['coins'],2) ?>
-        <?php if ($u['coins'] < 0 && $u['role'] === 'user'): ?>
-            <span class="badge negative-badge">NEGATIVE</span>
-        <?php endif; ?>
-    </td>
+            <button type="submit" class="admin-btn admin-btn-primary">Filter</button>
+            <?php if ($search !== '' || $filterStatus !== '' || $filterRole !== ''): ?>
+                <a href="users.php" class="admin-btn admin-btn-secondary">Clear</a>
+            <?php endif; ?>
+        </div>
 
-    <td class="time"><?= $nextCut ?></td>
-
-    <td>
-        <?php if (in_array($u['role'], ['admin','sub_admin','system'], true)): ?>
-            <span class="disabled">—</span>
-        <?php elseif ($u['status'] === 'banned'): ?>
-            <div class="actions">
-                <a class="btn unban" href="?action=unban&id=<?= $u['id'] ?>">Unban</a>
-            </div>
-        <?php else: ?>
-            <div class="actions">
-                <a class="btn ban" href="?action=ban&id=<?= $u['id'] ?>">Ban</a>
-            </div>
-        <?php endif; ?>
-    </td>
-</tr>
-
-<?php endforeach; ?>
-</table>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="admin-badge admin-badge-info">Showing <?= $totalCount ?> Users</span>
+            <?php if ($negativeCount > 0): ?>
+                <span class="admin-badge admin-badge-danger">⚠️ <?= $negativeCount ?> in Debt</span>
+            <?php endif; ?>
+        </div>
+    </form>
 </div>
 
+<!-- USERS TABLE -->
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">👥 Member Accounts List</h2>
+        <div style="display:flex; gap:8px;">
+            <a href="export_csv.php" class="admin-btn admin-btn-secondary admin-btn-sm">📤 Export CSV</a>
+        </div>
+    </div>
+
+    <?php if (empty($users)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No matching users found.</p>
+    <?php else: ?>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Member Details</th>
+                        <th>Role</th>
+                        <th>Coins (UC)</th>
+                        <th>Status</th>
+                        <th>Joined Date</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($users as $u): ?>
+                        <tr>
+                            <td>
+                                <strong style="color: #ffffff;">#<?= $u['id'] ?></strong>
+                            </td>
+                            <td>
+                                <div style="font-weight: 800; color: #ffffff;"><?= htmlspecialchars($u['name']) ?></div>
+                                <div style="font-size: 12px; color: var(--admin-text-dim);">📱 <?= htmlspecialchars($u['phone']) ?></div>
+                                <?php if (!empty($u['email'])): ?>
+                                    <div style="font-size: 11px; color: var(--admin-text-dim);">✉️ <?= htmlspecialchars($u['email']) ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($u['role'] === 'admin'): ?>
+                                    <span class="admin-badge admin-badge-admin">ADMIN</span>
+                                <?php elseif ($u['role'] === 'system'): ?>
+                                    <span class="admin-badge" style="background:rgba(100,116,139,0.2);color:#94a3b8;">SYSTEM</span>
+                                <?php elseif ($u['role'] === 'premium' || $u['status'] === 'premium'): ?>
+                                    <span class="admin-badge admin-badge-warning">👑 VIP</span>
+                                <?php else: ?>
+                                    <span class="admin-badge" style="background:rgba(255,255,255,0.06);color:#cbd5e1;">MEMBER</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <strong style="color: <?= $u['coins'] < 0 ? '#ef4444' : '#facc15' ?>; font-size: 14px;">
+                                    🪙 <?= number_format($u['coins'], 2) ?>
+                                </strong>
+                            </td>
+                            <td>
+                                <?php
+                                    $st = strtolower($u['status']);
+                                    $appSt = strtolower($u['apply_status']);
+                                    
+                                    if ($st === 'banned') {
+                                        echo '<span class="admin-badge admin-badge-danger">BANNED</span>';
+                                    } elseif ($appSt === 'pending') {
+                                        echo '<span class="admin-badge admin-badge-warning">PENDING</span>';
+                                    } elseif ($st === 'active') {
+                                        echo '<span class="admin-badge admin-badge-success">ACTIVE</span>';
+                                    } else {
+                                        echo '<span class="admin-badge admin-badge-info">'.htmlspecialchars(strtoupper($st)).'</span>';
+                                    }
+                                ?>
+                            </td>
+                            <td>
+                                <span style="font-size: 12px; color: var(--admin-text-muted);">
+                                    <?= date("d M Y", strtotime($u['created_at'])) ?>
+                                </span>
+                            </td>
+                            <td style="text-align: right;">
+                                <div style="display: inline-flex; gap: 6px; align-items: center;">
+                                    <?php if ($u['apply_status'] === 'pending'): ?>
+                                        <a href="users.php?action=approve&id=<?= $u['id'] ?>" class="admin-btn admin-btn-sm admin-btn-success" onclick="return confirm('Approve this user account?')">
+                                            ✅ Approve
+                                        </a>
+                                    <?php endif; ?>
+
+                                    <a href="add_balance.php?user_id=<?= $u['id'] ?>" class="admin-btn admin-btn-sm admin-btn-primary" title="Adjust Balance">
+                                        🪙 Adjust
+                                    </a>
+
+                                    <?php if ($u['role'] !== 'admin' && $u['role'] !== 'system'): ?>
+                                        <?php if ($u['status'] === 'banned'): ?>
+                                            <a href="users.php?action=unban&id=<?= $u['id'] ?>" class="admin-btn admin-btn-sm admin-btn-secondary" onclick="return confirm('Unban this user?')">
+                                                Unban
+                                            </a>
+                                        <?php else: ?>
+                                            <a href="users.php?action=ban&id=<?= $u['id'] ?>" class="admin-btn admin-btn-sm admin-btn-danger" onclick="return confirm('Are you sure you want to ban this user?')">
+                                                Ban
+                                            </a>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    <?php endif; ?>
 </div>
-</div>
-</body>
-</html>
+
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>

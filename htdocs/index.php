@@ -1,6 +1,11 @@
 <?php
+/**
+ * UNMOOR CLUB - APPLY FOR MEMBERSHIP
+ */
+
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
 /* BLOCK LOGGED IN USERS */
 if (isset($_SESSION['user_id'])) {
@@ -35,8 +40,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             /* CREATE PENDING USER */
             $stmt = $db->prepare("
                 INSERT INTO users
-                (name, phone, password, role, status, apply_status)
-                VALUES (?, ?, ?, 'user', 'pending', 'pending')
+                (name, phone, password, role, status, apply_status, created_at)
+                VALUES (?, ?, ?, 'user', 'pending', 'pending', NOW())
             ");
             $stmt->execute([
                 $name,
@@ -46,9 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $uid = $db->lastInsertId();
 
-            /* TEMP SESSION (NOT FULL LOGIN) */
+            /* TEMP SESSION */
             $_SESSION['apply_user_id'] = $uid;
-            $_SESSION['user_id'] = $uid; // needed for payment + admin linkage
+            $_SESSION['user_id'] = $uid;
 
             /* REDIRECT TO PAYMENT */
             header("Location: apply_payment.php");
@@ -60,86 +65,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Apply • Unmoor Club</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-*{box-sizing:border-box;font-family:system-ui}
-body{
-    margin:0;
-    background:url('assets/bg/bg.jpg') center/cover fixed;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-}
-.card{
-    width:90%;
-    max-width:360px;
-    background:#fff;
-    border-radius:22px;
-    padding:22px;
-    box-shadow:0 20px 40px rgba(0,0,0,.35);
-    text-align:center;
-}
-.logo img{height:60px;margin-bottom:10px}
-input{
-    width:100%;
-    padding:14px;
-    border:none;
-    border-radius:14px;
-    background:#f2f2f2;
-    margin-bottom:14px;
-}
-button{
-    width:100%;
-    padding:14px;
-    border:none;
-    border-radius:16px;
-    color:#fff;
-    font-weight:600;
-    background:linear-gradient(135deg,#8b5cf6,#7c3aed);
-}
-.footer{margin-top:14px;font-size:14px}
-.footer a{color:#7c3aed;font-weight:600;text-decoration:none}
-.error{color:#dc2626;margin-bottom:10px}
-.note{
-    font-size:13px;
-    color:#6b7280;
-    margin-bottom:12px
-}
-</style>
+    <meta charset="UTF-8">
+    <title>Apply for Membership • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
-
 <body>
+    <div class="auth-wrap">
+        <div class="auth-card">
+            
+            <div class="auth-logo">
+                <img src="assets/logo/logo.png" alt="Unmoor Club">
+            </div>
 
-<div class="card">
-    <div class="logo">
-        <img src="assets/logo/logo.png" alt="Unmoor Club">
+            <h2 style="font-size: 22px; font-weight: 900; margin-bottom: 6px; color: #ffffff;">Club Membership</h2>
+            <div style="background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.25); border-radius: var(--radius-md); padding: 10px; margin-bottom: 16px; font-size: 13px; color: var(--accent-gold);">
+                📝 Application fee: <b>৳150</b> • ⏳ Admin approval required
+            </div>
+
+            <?php if ($error): ?>
+                <div class="alert alert-danger" style="margin-bottom: 16px;">
+                    <?= htmlspecialchars($error) ?>
+                </div>
+            <?php endif; ?>
+
+            <form method="post" action="index.php">
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="name" class="form-control" placeholder="Full Name" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>" required>
+                </div>
+
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Phone Number</label>
+                    <input type="text" name="phone" class="form-control" placeholder="01XXXXXXXXX" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>" required>
+                </div>
+
+                <div class="form-group" style="text-align: left;">
+                    <label class="form-label">Create Password</label>
+                    <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn btn-gold btn-block" style="margin-top: 10px; padding: 14px;">
+                    Apply for Membership
+                </button>
+            </form>
+
+            <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color); font-size: 13.5px; color: var(--text-muted);">
+                Already applied or registered? 
+                <a href="login.php" style="color: var(--accent-gold); font-weight: 800; text-decoration: none;">Log In</a>
+            </div>
+
+        </div>
     </div>
-
-    <div class="note">
-        📝 Apply fee: <b>৳150</b><br>
-        ⏳ Admin approval required
-    </div>
-
-    <?php if ($error): ?>
-        <div class="error"><?= htmlspecialchars($error) ?></div>
-    <?php endif; ?>
-
-    <form method="post">
-        <input name="name" placeholder="Full Name" required>
-        <input name="phone" placeholder="Phone Number" required>
-        <input type="password" name="password" placeholder="Password" required>
-        <button type="submit">Apply</button>
-    </form>
-
-    <div class="footer">
-        Already applied?
-        <a href="login.php">Log In</a>
-    </div>
-</div>
-
 </body>
 </html>

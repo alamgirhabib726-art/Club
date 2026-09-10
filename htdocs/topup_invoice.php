@@ -1,175 +1,140 @@
 <?php
+/**
+ * UNMOOR CLUB - TOPUP INVOICE
+ */
+
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
-/* ===============================
-   AUTH CHECK
-================================ */
-if (!isset($_SESSION['user_id'])) {
-    die("Login required");
+$payConfig = require __DIR__ . "/config/payment_numbers.php";
+
+if (!isset($_SESSION['user_id']) || empty($_SESSION['topup_amount']) || empty($_SESSION['topup_method'])) {
+    header("Location: topup.php");
+    exit;
 }
 
-/* ===============================
-   VALIDATE PAYMENT ID
-================================ */
-if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
-    die("Invalid request");
-}
-
-$payment_id = (int)$_GET['id'];
-
-/* ===============================
-   FETCH PAYMENT
-================================ */
-$stmt = $db->prepare("
-    SELECT *
-    FROM payments
-    WHERE id = ? AND user_id = ? AND status = 'pending'
-");
-$stmt->execute([$payment_id, $_SESSION['user_id']]);
-$payment = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$payment) {
-    die("Invoice not found or already processed");
-}
-
-/* ===============================
-   PAYMENT METHODS (INLINE SAFE)
-================================ */
-$methods = [
-    'bkash' => [
-        'name'   => 'bKash',
-        'number' => '01788674353'
-    ],
-    'nagad' => [
-        'name'   => 'Nagad',
-        'number' => '018XXXXXXXX'
-    ]
-];
+$uid    = (int)$_SESSION['user_id'];
+$amount = (float)$_SESSION['topup_amount'];
+$method = $_SESSION['topup_method'];
+$payInfo = $payConfig[$method] ?? ['name' => ucfirst($method), 'number' => '01788674353'];
 
 $msg = '';
+$error = '';
 
-/* ===============================
-   HANDLE SCREENSHOT SUBMIT
-================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    $method = $_POST['method'] ?? '';
-
-    if (!isset($methods[$method])) {
-        $msg = "❌ ভুল পেমেন্ট মেথড";
-    } elseif (!isset($_FILES['proof']) || $_FILES['proof']['error'] !== 0) {
-        $msg = "❌ স্ক্রিনশট দিন";
+    if (!isset($_FILES['proof']) || $_FILES['proof']['error'] !== UPLOAD_ERR_OK) {
+        $error = "Payment screenshot proof is required.";
     } else {
-
+        $allowed = ['jpg','jpeg','png','webp'];
         $ext = strtolower(pathinfo($_FILES['proof']['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg','jpeg','png','webp'])) {
-            $msg = "❌ শুধু ছবি ফাইল অনুমোদিত";
+
+        if (!in_array($ext, $allowed)) {
+            $error = "Only JPG, PNG or WEBP image files allowed.";
         } else {
+            $dir = __DIR__ . "/uploads/topup";
+            if (!is_dir($dir)) mkdir($dir, 0755, true);
 
-            $dir = __DIR__ . "/uploads";
-            if (!is_dir($dir)) mkdir($dir, 0777, true);
-
-            $file = "pay_".$payment_id."_".time().".".$ext;
-
-            if (!move_uploaded_file($_FILES['proof']['tmp_name'], "$dir/$file")) {
-                $msg = "❌ আপলোড ব্যর্থ";
-            } else {
-
+            $filename = "topup_" . $uid . "_" . time() . "." . $ext;
+            if (move_uploaded_file($_FILES['proof']['tmp_name'], "$dir/$filename")) {
                 $db->prepare("
-                    UPDATE payments
-                    SET method = ?, proof = ?, status = 'pending'
-                    WHERE id = ?
-                ")->execute([$method, $file, $payment_id]);
+                    INSERT INTO payments (user_id, type, amount, method, proof, status, created_at)
+                    VALUES (?, 'topup', ?, ?, ?, 'pending', NOW())
+                ")->execute([
+                    $uid,
+                    $amount,
+                    $method,
+                    $filename
+                ]);
 
-                $msg = "✅ পেমেন্ট সাবমিট হয়েছে। অ্যাডমিন যাচাই করবে।";
+                unset($_SESSION['topup_amount'], $_SESSION['topup_method']);
+                $msg = "✅ Top-up request submitted! Your balance will be credited after admin review.";
+            } else {
+                $error = "File upload failed. Please try again.";
             }
         }
     }
 }
 ?>
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Payment Invoice</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body{font-family:system-ui;background:#f5f6fa;margin:0}
-.card{
-    max-width:420px;
-    margin:40px auto;
-    background:#fff;
-    padding:22px;
-    border-radius:18px;
-    box-shadow:0 20px 40px rgba(0,0,0,.15)
-}
-.notice{
-    background:#eef2ff;
-    padding:14px;
-    border-radius:14px;
-    margin-bottom:14px;
-    font-size:14px
-}
-select,input,button{
-    width:100%;
-    padding:14px;
-    margin-top:10px;
-    border-radius:14px;
-    border:none
-}
-button{
-    background:#7c3aed;
-    color:#fff;
-    font-weight:600
-}
-.msg{
-    margin-top:14px;
-    text-align:center;
-    font-weight:600
-}
-.back{
-    display:block;
-    text-align:center;
-    margin-top:16px;
-    color:#7c3aed;
-    font-weight:600;
-    text-decoration:none
-}
-</style>
+    <meta charset="UTF-8">
+    <title>Top-Up Invoice • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
+    <div class="page-wrap">
+        
+        <?= render_page_header("Top-up Invoice", "/topup.php") ?>
 
-<div class="card">
-<h3>🧾 Payment Invoice</h3>
+        <div class="card">
+            <h3 style="font-size: 16px; font-weight: 900; color: #ffffff; margin-bottom: 12px;">
+                🧾 Top-up Payment Order
+            </h3>
 
-<div class="notice">
-<b>Amount:</b> ৳<?=number_format($payment['amount'],2)?><br>
-<b>Status:</b> Pending approval
-</div>
+            <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; font-size: 14px;">
+                    <span style="color: var(--text-muted);">Amount:</span>
+                    <span style="color: var(--accent-gold); font-size: 18px; font-weight: 900;">৳<?= number_format($amount, 2) ?></span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 13.5px; margin-top: 6px;">
+                    <span style="color: var(--text-muted);">Method:</span>
+                    <span style="color: #ffffff; font-weight: 700;"><?= htmlspecialchars($payInfo['name']) ?></span>
+                </div>
 
-<?php if ($msg): ?>
-<div class="msg"><?=$msg?></div>
-<?php else: ?>
-<form method="post" enctype="multipart/form-data">
+                <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border-color); text-align: center;">
+                    <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Send Money to Number</div>
+                    <div style="font-size: 18px; font-weight: 900; color: #ffffff; margin: 4px 0;" id="invoiceNum">
+                        <?= htmlspecialchars($payInfo['number']) ?>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="copyInvoiceNum()">
+                        📋 Copy Number
+                    </button>
+                </div>
+            </div>
 
-    <select name="method" required>
-        <option value="">-- পেমেন্ট মেথড নির্বাচন করুন --</option>
-        <?php foreach ($methods as $k=>$m): ?>
-            <option value="<?=$k?>">
-                <?=$m['name']?> (<?=$m['number']?>)
-            </option>
-        <?php endforeach; ?>
-    </select>
+            <?php if ($msg): ?>
+                <div class="alert alert-success" style="margin-bottom: 14px;">
+                    <?= htmlspecialchars($msg) ?>
+                </div>
+                <a href="dashboard.php" class="btn btn-secondary btn-block" style="padding: 12px; text-align: center;">
+                    ← Back to Dashboard
+                </a>
+            <?php else: ?>
+                <?php if ($error): ?>
+                    <div class="alert alert-danger" style="margin-bottom: 14px;">
+                        <?= htmlspecialchars($error) ?>
+                    </div>
+                <?php endif; ?>
 
-    <input type="file" name="proof" accept="image/*" required>
+                <form method="post" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label class="form-label">Upload Transaction Screenshot</label>
+                        <input type="file" name="proof" class="form-control" accept="image/*" required>
+                    </div>
 
-    <button>📤 Submit Screenshot</button>
-</form>
-<?php endif; ?>
+                    <button type="submit" class="btn btn-gold btn-block" style="padding: 14px; margin-top: 10px;">
+                        Submit Payment Proof
+                    </button>
+                </form>
+            <?php endif; ?>
+        </div>
 
-<a class="back" href="dashboard.php">← Dashboard</a>
-</div>
+        <?= render_support_widget() ?>
 
+    </div>
+
+    <?php require_once __DIR__ . "/bottom_nav.php"; ?>
+
+    <script>
+    function copyInvoiceNum() {
+        const num = document.getElementById('invoiceNum').innerText.trim();
+        navigator.clipboard.writeText(num).then(() => {
+            alert('Payment number copied: ' + num);
+        });
+    }
+    </script>
 </body>
 </html>

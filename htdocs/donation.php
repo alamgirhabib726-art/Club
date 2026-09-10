@@ -1,6 +1,11 @@
 <?php
+/**
+ * UNMOOR CLUB - DONATE & SUPPORT
+ */
+
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/components.php";
 
 /* ================= LOGIN ================= */
 if (!isset($_SESSION['user_id'])) {
@@ -10,7 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $uid = (int)$_SESSION['user_id'];
 
-/* ================= FETCH DONOR (FIXED) ================= */
+/* ================= FETCH DONOR ================= */
 $stmt = $db->prepare("
     SELECT id, name, phone, coins, status, apply_status
     FROM users
@@ -20,31 +25,27 @@ $stmt = $db->prepare("
 $stmt->execute([$uid]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (
-    !$user ||
-    $user['status'] !== 'active' ||
-    $user['apply_status'] !== 'approved'
-) {
+if (!$user || ($user['status'] !== 'active' && $user['status'] !== 'premium') || $user['apply_status'] !== 'approved') {
     die("ACCESS DENIED");
 }
 
 /* ================= SYSTEM RECEIVER ================= */
-$receiverPhone = "01714761754";
-
 $stmt = $db->prepare("
-    SELECT id, name
+    SELECT id, name, phone
     FROM users
-    WHERE phone = ? AND role = 'system'
+    WHERE role = 'system'
     LIMIT 1
 ");
-$stmt->execute([$receiverPhone]);
+$stmt->execute();
 $receiver = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$receiver) {
     die("SYSTEM ACCOUNT NOT FOUND");
 }
 
-$msg = $error = "";
+$msg = $_SESSION['donation_msg'] ?? '';
+$error = $_SESSION['donation_err'] ?? '';
+unset($_SESSION['donation_msg'], $_SESSION['donation_err']);
 
 /* ================= DONATE ================= */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -52,45 +53,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $amount = round((float)($_POST['amount'] ?? 0), 2);
 
     if ($amount <= 0) {
-        $error = "❌ Enter a valid amount";
+        $_SESSION['donation_err'] = "❌ Enter a valid amount";
     }
-    elseif ($amount > $user['coins']) {
-        $error = "❌ Insufficient balance";
+    elseif ($amount > (float)$user['coins']) {
+        $_SESSION['donation_err'] = "❌ Insufficient coin balance";
     }
     else {
 
         $db->beginTransaction();
         try {
 
-            /* USER → SYSTEM BALANCE */
             $db->prepare("UPDATE users SET coins = coins - ? WHERE id = ?")
                ->execute([$amount, $user['id']]);
 
             $db->prepare("UPDATE users SET coins = coins + ? WHERE id = ?")
                ->execute([$amount, $receiver['id']]);
 
-            /* USER HISTORY */
             $db->prepare("
                 INSERT INTO coin_history
                     (user_id, amount, type,
-                     source_user_id, source_name, source_number)
+                     source_user_id, source_name, source_number, created_at)
                 VALUES
-                    (?, ?, 'donation_out', ?, ?, ?)
+                    (?, ?, 'donation_out', ?, ?, ?, NOW())
             ")->execute([
                 $user['id'],
                 -$amount,
                 $receiver['id'],
-                'Unmoor Club',
-                $receiverPhone
+                'Unmoor Club Reserve',
+                $receiver['phone'] ?? 'SYSTEM'
             ]);
 
-            /* SYSTEM HISTORY (FULL NAME + NUMBER ✅) */
             $db->prepare("
                 INSERT INTO coin_history
                     (user_id, amount, type,
-                     source_user_id, source_name, source_number)
+                     source_user_id, source_name, source_number, created_at)
                 VALUES
-                    (?, ?, 'donation_in', ?, ?, ?)
+                    (?, ?, 'donation_in', ?, ?, ?, NOW())
             ")->execute([
                 $receiver['id'],
                 $amount,
@@ -99,7 +97,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user['phone']
             ]);
 
-            /* PAYMENT LOG */
             $db->prepare("
                 INSERT INTO payments
                     (user_id, type, amount, status, source, created_at)
@@ -112,116 +109,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             $db->commit();
-
-            $_SESSION['donation_msg'] = "💚 Donation successful";
-header("Location: donation.php");
-exit;
+            $_SESSION['donation_msg'] = "💚 Thank you! Your donation of 🪙" . number_format($amount, 2) . " has been received.";
 
         } catch (Exception $e) {
             $db->rollBack();
-            error_log("DONATION ERROR: ".$e->getMessage());
-            $_SESSION['donation_err'] = "❌ Donation failed";
-header("Location: donation.php");
-exit;
+            $_SESSION['donation_err'] = "❌ Donation failed. Please try again.";
         }
     }
+
+    header("Location: donation.php");
+    exit;
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Donate • Unmoor Club</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body{
-    margin:0;
-    background:#0b0f19;
-    color:#e5e7eb;
-    font-family:system-ui;
-}
-.card{
-    max-width:420px;
-    margin:40px auto;
-    background:#121826;
-    border:1px solid #1f2937;
-    border-radius:26px;
-    padding:26px;
-    box-shadow:0 30px 60px rgba(0,0,0,.45);
-}
-h2{text-align:center;margin:0 0 8px}
-.balance{
-    text-align:center;
-    font-weight:900;
-    color:#22c55e;
-    margin-bottom:18px;
-}
-.balance.negative{color:#ef4444}
-input{
-    width:100%;
-    padding:16px;
-    border-radius:16px;
-    border:1px solid #1f2937;
-    background:#020617;
-    color:#e5e7eb;
-    font-size:16px;
-}
-button{
-    width:100%;
-    margin-top:16px;
-    padding:18px;
-    border:none;
-    border-radius:20px;
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-    color:#022c22;
-    font-size:16px;
-    font-weight:900;
-    box-shadow:0 18px 40px rgba(34,197,94,.45);
-}
-.msg{text-align:center;color:#22c55e;font-weight:900;margin-top:14px}
-.err{text-align:center;color:#ef4444;font-weight:900;margin-top:14px}
-.note{
-    margin-top:16px;
-    font-size:13px;
-    text-align:center;
-    color:#9ca3af;
-}
-.back{
-    display:block;
-    margin-top:18px;
-    text-align:center;
-    color:#9ca3af;
-    text-decoration:none;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>Donate & Support • Unmoor Club</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link rel="stylesheet" href="assets/style.css">
 </head>
-
 <body>
+    <div class="page-wrap">
+        
+        <?= render_page_header("Donate & Support", "/dashboard.php") ?>
 
-<div class="card">
+        <!-- CURRENT BALANCE -->
+        <div class="card" style="text-align: center; padding: 18px 14px; margin-bottom: 14px;">
+            <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 800;">Available Balance</div>
+            <div style="font-size: 26px; font-weight: 900; color: <?= $user['coins'] < 0 ? 'var(--accent-red)' : 'var(--accent-green)' ?>; margin-top: 4px;">
+                🪙 <?= number_format($user['coins'], 2) ?>
+            </div>
+        </div>
 
-<h2>💚 Support Unmoor Club</h2>
+        <?php if ($msg): ?>
+            <div class="alert alert-success" style="margin-bottom: 14px;">
+                <?= htmlspecialchars($msg) ?>
+            </div>
+        <?php endif; ?>
 
-<div class="balance <?= $user['coins'] < 0 ? 'negative' : '' ?>">
-    Available Coins: 🪙 <?=number_format($user['coins'],2)?>
-</div>
+        <?php if ($error): ?>
+            <div class="alert alert-danger" style="margin-bottom: 14px;">
+                <?= htmlspecialchars($error) ?>
+            </div>
+        <?php endif; ?>
 
-<?php if ($msg): ?><div class="msg"><?=$msg?></div><?php endif; ?>
-<?php if ($error): ?><div class="err"><?=$error?></div><?php endif; ?>
+        <div class="card">
+            <h3 style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 8px; text-transform: uppercase;">
+                💚 Support Club Development
+            </h3>
+            <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
+                Contributions help fund server stability, club events, prize pools, and system upgrades.
+            </p>
 
-<form method="post">
-    <input type="number" name="amount" step="0.01" min="0.01"
-           placeholder="Enter donation amount" required>
-    <button>Donate Now</button>
-</form>
+            <form method="post">
+                <div class="form-group">
+                    <label class="form-label">Donation Amount (Coins)</label>
+                    <input type="number" name="amount" class="form-control" step="0.01" min="0.01" placeholder="e.g. 5.00" required>
+                </div>
 
-<div class="note">
-    💡 Donations help improve features & stability.<br>
-    Thank you for supporting the club.
-</div>
+                <button type="submit" class="btn btn-primary btn-block" style="padding: 14px; margin-top: 10px;">
+                    Contribute Coins
+                </button>
+            </form>
+        </div>
 
-<a class="back" href="dashboard.php">← Back to Dashboard</a>
+        <?= render_support_widget() ?>
 
-</div>
+    </div>
+
+    <?php require_once __DIR__ . "/bottom_nav.php"; ?>
 </body>
 </html>

@@ -1,195 +1,143 @@
 <?php
-session_start();
-require_once __DIR__ . "/../db.php";
+/**
+ * UNMOOR CLUB - ADMIN HEAD & TAIL GAME P&L ANALYTICS
+ */
 
-/* ================= ADMIN GUARD ================= */
-if (!isset($_SESSION['user_id'])) {
-    die("NO SESSION");
-}
-
-$stmt = $db->prepare("SELECT role FROM users WHERE id=? LIMIT 1");
-$stmt->execute([$_SESSION['user_id']]);
-if ($stmt->fetchColumn() !== 'admin') {
-    die("ADMIN ONLY");
-}
+require_once __DIR__ . "/guard.php";
 
 /* ================= GET SYSTEM ID ================= */
 $systemId = (int)$db->query("
     SELECT id FROM users WHERE role='system' LIMIT 1
 ")->fetchColumn();
 
-if (!$systemId) {
-    die("SYSTEM ACCOUNT NOT FOUND");
+$systemProfit = 0;
+$systemLoss = 0;
+$net = 0;
+$rows = [];
+
+if ($systemId) {
+    /* SYSTEM PROFIT = system gains (game_win) */
+    $profitStmt = $db->prepare("
+        SELECT COALESCE(SUM(amount),0)
+        FROM coin_history
+        WHERE user_id = ?
+          AND (type = 'game_win' OR source = 'GAME_WIN')
+    ");
+    $profitStmt->execute([$systemId]);
+    $systemProfit = (float)$profitStmt->fetchColumn();
+
+    /* SYSTEM LOSS = system payouts (game_loss) */
+    $lossStmt = $db->prepare("
+        SELECT COALESCE(SUM(ABS(amount)),0)
+        FROM coin_history
+        WHERE user_id = ?
+          AND (type = 'game_loss' OR source = 'GAME_LOSS')
+    ");
+    $lossStmt->execute([$systemId]);
+    $systemLoss = (float)$lossStmt->fetchColumn();
+
+    $net = $systemProfit - $systemLoss;
+
+    /* FETCH SYSTEM GAME HISTORY */
+    $stmt = $db->prepare("
+        SELECT ch.amount, ch.type, ch.source, ch.created_at
+        FROM coin_history ch
+        WHERE ch.user_id = ?
+          AND (ch.type IN ('game_win','game_loss') OR ch.source LIKE '%GAME%')
+        ORDER BY ch.id DESC
+        LIMIT 100
+    ");
+    $stmt->execute([$systemId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/* ================= CALCULATE STATS (SYSTEM ONLY) ================= */
+$pageTitle = 'Head/Tail P&L';
+$activeNav = 'headtail_stats.php';
+$pageSubtitle = 'House profitability and wagering analytics for the Head & Tail mini-game.';
 
-/* SYSTEM PROFIT = system gains (amount > 0) */
-$profitStmt = $db->prepare("
-    SELECT COALESCE(SUM(amount),0)
-    FROM coin_history
-    WHERE user_id = ?
-      AND type = 'game_win'
-");
-$profitStmt->execute([$systemId]);
-$systemProfit = (float)$profitStmt->fetchColumn();
-
-/* SYSTEM LOSS = system payouts (amount < 0) */
-$lossStmt = $db->prepare("
-    SELECT COALESCE(SUM(ABS(amount)),0)
-    FROM coin_history
-    WHERE user_id = ?
-      AND type = 'game_loss'
-");
-$lossStmt->execute([$systemId]);
-$systemLoss = (float)$lossStmt->fetchColumn();
-
-/* NET RESULT */
-$net = $systemProfit - $systemLoss;
-
-/* ================= FETCH SYSTEM GAME HISTORY ================= */
-$stmt = $db->prepare("
-    SELECT amount, type, source_name, source_number, created_at
-    FROM coin_history
-    WHERE user_id = ?
-      AND type IN ('game_win','game_loss')
-    ORDER BY id DESC
-    LIMIT 200
-");
-$stmt->execute([$systemId]);
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+require_once __DIR__ . "/layout_top.php";
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Head / Tail Stats • Admin</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
 
-<style>
-body{
-    margin:0;
-    background:#0b0f19;
-    color:#e5e7eb;
-    font-family:system-ui;
-}
-.wrap{
-    max-width:900px;
-    margin:auto;
-    padding:24px;
-}
-.card{
-    background:#121826;
-    border-radius:22px;
-    padding:22px;
-    margin-bottom:20px;
-}
-.stat-grid{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:14px;
-}
-.stat{
-    background:#020617;
-    border-radius:18px;
-    padding:18px;
-    text-align:center;
-}
-.stat h3{margin:0;font-size:14px;color:#9ca3af}
-.stat div{margin-top:6px;font-size:20px;font-weight:900}
-
-.green{color:#22c55e}
-.red{color:#ef4444}
-
-.row{
-    display:flex;
-    justify-content:space-between;
-    padding:14px 0;
-    border-bottom:1px dashed #1f2937;
-}
-.row:last-child{border-bottom:none}
-
-.type{
-    font-size:12px;
-    font-weight:800;
-    color:#9ca3af;
-    text-transform:uppercase;
-}
-.from{
-    font-size:13px;
-    margin-top:4px;
-}
-.time{
-    font-size:11px;
-    color:#64748b;
-}
-.plus{color:#22c55e;font-weight:900}
-.minus{color:#ef4444;font-weight:900}
-
-.back{
-    display:block;
-    margin-top:18px;
-    text-align:center;
-    color:#9ca3af;
-    text-decoration:none;
-    font-weight:700;
-}
-</style>
-</head>
-
-<body>
-<div class="wrap">
-
-<div class="card">
-<h2>🎲 Head / Tail — System Stats</h2>
-
-<div class="stat-grid">
-    <div class="stat">
-        <h3>SYSTEM PROFIT</h3>
-        <div class="green">🪙 <?=number_format($systemProfit,2)?></div>
+<div class="admin-stats-grid">
+    <div class="admin-stat-card">
+        <div class="admin-stat-header">
+            <span class="admin-stat-title">House Gross Revenue</span>
+            <div class="admin-stat-icon" style="color: #22c55e;">📈</div>
+        </div>
+        <div class="admin-stat-value">🪙 <?= number_format($systemProfit, 2) ?></div>
+        <div class="admin-stat-subtext">
+            <span>Player wager losses collected</span>
+        </div>
     </div>
-    <div class="stat">
-        <h3>SYSTEM LOSS</h3>
-        <div class="red">🪙 <?=number_format($systemLoss,2)?></div>
+
+    <div class="admin-stat-card">
+        <div class="admin-stat-header">
+            <span class="admin-stat-title">House Payouts</span>
+            <div class="admin-stat-icon" style="color: #ef4444;">📉</div>
+        </div>
+        <div class="admin-stat-value">🪙 <?= number_format($systemLoss, 2) ?></div>
+        <div class="admin-stat-subtext">
+            <span>Winnings paid to players</span>
+        </div>
     </div>
-    <div class="stat">
-        <h3>NET RESULT</h3>
-        <div class="<?= $net >= 0 ? 'green':'red' ?>">
-            🪙 <?=number_format($net,2)?>
+
+    <div class="admin-stat-card">
+        <div class="admin-stat-header">
+            <span class="admin-stat-title">Net House Profit</span>
+            <div class="admin-stat-icon" style="color: <?= $net >= 0 ? '#facc15' : '#ef4444' ?>;">🎲</div>
+        </div>
+        <div class="admin-stat-value" style="color: <?= $net >= 0 ? '#22c55e' : '#ef4444' ?>;">
+            <?= $net >= 0 ? '+' : '' ?>🪙 <?= number_format($net, 2) ?>
+        </div>
+        <div class="admin-stat-subtext">
+            <span>Overall game margin</span>
         </div>
     </div>
 </div>
-</div>
 
-<div class="card">
-<h3>📜 Recent Head / Tail Activity</h3>
+<div class="admin-card">
+    <div class="admin-card-header">
+        <h2 class="admin-card-title">🎲 Recent Wagering Logs</h2>
+    </div>
 
-<?php if ($rows): foreach ($rows as $r): ?>
-<div class="row">
-    <div>
-        <div class="type">
-            <?= $r['amount'] > 0 ? 'USER LOST (SYSTEM +)' : 'USER WON (SYSTEM -)' ?>
+    <?php if (empty($rows)): ?>
+        <p style="color: var(--admin-text-muted); text-align: center; padding: 32px 0;">No game wager history found.</p>
+    <?php else: ?>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Outcome / Type</th>
+                        <th>Amount Impact</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($rows as $r): ?>
+                        <tr>
+                            <td>
+                                <?php if ($r['amount'] >= 0): ?>
+                                    <span class="admin-badge admin-badge-success">HOUSE WIN (+<?= number_format($r['amount'], 2) ?>)</span>
+                                <?php else: ?>
+                                    <span class="admin-badge admin-badge-danger">HOUSE PAYOUT (<?= number_format($r['amount'], 2) ?>)</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <strong style="color: <?= $r['amount'] >= 0 ? '#22c55e' : '#ef4444' ?>;">
+                                    <?= $r['amount'] >= 0 ? '+' : '' ?>🪙 <?= number_format($r['amount'], 2) ?> UC
+                                </strong>
+                            </td>
+                            <td>
+                                <span style="font-size: 12px; color: var(--admin-text-muted);">
+                                    <?= date("d M Y • h:i A", strtotime($r['created_at'])) ?>
+                                </span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
-        <?php if($r['source_name']): ?>
-            <div class="from">
-                From: <?= htmlspecialchars($r['source_name']) ?>
-                <?= $r['source_number'] ? '(' . htmlspecialchars($r['source_number']) . ')' : '' ?>
-            </div>
-        <?php endif; ?>
-        <div class="time"><?= date("d M Y, h:i A", strtotime($r['created_at'])) ?></div>
-    </div>
-    <div class="<?= $r['amount'] > 0 ? 'plus' : 'minus' ?>">
-        <?= $r['amount'] > 0 ? '+' : '−' ?>
-        <?= number_format(abs($r['amount']),2) ?>
-    </div>
-</div>
-<?php endforeach; else: ?>
-<p style="color:#9ca3af">No head/tail records yet.</p>
-<?php endif; ?>
+    <?php endif; ?>
 </div>
 
-<a class="back" href="dashboard.php">← Back to Admin Dashboard</a>
-
-</div>
-</body>
-</html>
+<?php require_once __DIR__ . "/layout_bottom.php"; ?>
