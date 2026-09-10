@@ -76,27 +76,58 @@ function bootstrapDatabaseIfEmpty($pdo) {
     }
 }
 
+$isExternalMySQL = !empty(getenv('MYSQL_URL')) || !empty(getenv('DATABASE_URL')) || !empty(getenv('MYSQLHOST')) || !empty(getenv('DB_HOST'));
+$isProduction = $isExternalMySQL || (getenv('RAILWAY_ENVIRONMENT') !== false) || (getenv('APP_ENV') === 'production');
+
 try {
-    $dsn = "mysql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_NAME;charset=utf8mb4";
-    $db = new PDO($dsn, $DB_USER, $DB_PASS, $pdoOptions);
-    bootstrapDatabaseIfEmpty($db);
-} catch (PDOException $e) {
-    try {
-        // Attempt local connection
+    if ($isExternalMySQL) {
+        $dsn = "mysql:host=$DB_HOST;port=$DB_PORT;dbname=$DB_NAME;charset=utf8mb4";
+        $db = new PDO($dsn, $DB_USER, $DB_PASS, $pdoOptions);
+        bootstrapDatabaseIfEmpty($db);
+    } elseif (getenv('DB_DRIVER') === 'mysql') {
         $db = new PDO("mysql:host=127.0.0.1;dbname=if0_40736960_club;charset=utf8mb4", "root", "", $pdoOptions);
         bootstrapDatabaseIfEmpty($db);
-    } catch (PDOException $e2) {
-        // SQLite Fallback so deployment never crashes on platforms without active MariaDB daemon
+    } else {
+        // Single local development source of truth
         $sqlitePath = __DIR__ . '/../database.sqlite';
-        try {
-            $db = new PDO("sqlite:" . $sqlitePath, null, null, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-            ]);
-        } catch (PDOException $e4) {
-            http_response_code(500);
-            die("Database connection failed. Error: " . htmlspecialchars($e->getMessage()));
-        }
+        $db = new PDO("sqlite:" . $sqlitePath, null, null, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+        ]);
+        $db->exec("PRAGMA foreign_keys = ON;");
+        bootstrapDatabaseIfEmpty($db);
+    }
+
+    if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+        $db->sqliteCreateFunction('NOW', function() {
+            return date('Y-m-d H:i:s');
+        }, 0);
+        $db->sqliteCreateFunction('CURDATE', function() {
+            return date('Y-m-d');
+        }, 0);
+        $db->sqliteCreateFunction('UNIX_TIMESTAMP', function($val = null) {
+            if ($val === null) return time();
+            return is_numeric($val) ? (int)$val : (strtotime((string)$val) ?: time());
+        }, -1);
+        $db->sqliteCreateFunction('IF', function($cond, $trueVal, $falseVal) {
+            return $cond ? $trueVal : $falseVal;
+        }, 3);
+        $db->sqliteCreateFunction('CONCAT', function(...$args) {
+            return implode('', $args);
+        }, -1);
+        $db->sqliteCreateFunction('FIND_IN_SET', function($str, $strList) {
+            $arr = explode(',', (string)$strList);
+            $idx = array_search((string)$str, $arr, true);
+            return $idx === false ? 0 : $idx + 1;
+        }, 2);
+    }
+} catch (PDOException $e) {
+    error_log("Database connection error: " . $e->getMessage());
+    http_response_code(500);
+    if ($isProduction) {
+        die("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>Database Error • Unmoor Club</title><meta name='viewport' content='width=device-width, initial-scale=1'><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#020617;color:#e5e7eb;font-family:system-ui;text-align:center;padding:16px}.card{max-width:440px;padding:32px;background:#0f172a;border:1px solid #1f2937;border-radius:18px}h2{color:#ef4444;margin-top:0}p{color:#9ca3af;font-size:14px;line-height:1.6}</style></head><body><div class='card'><h2>Database Service Unavailable</h2><p>The configured database service could not be reached. Please check the database server status, network connectivity, and deployment environment variables.</p></div></body></html>");
+    } else {
+        die("<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>Database Error</title><meta name='viewport' content='width=device-width, initial-scale=1'><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#020617;color:#e5e7eb;font-family:system-ui;text-align:center;padding:16px}.card{max-width:440px;padding:32px;background:#0f172a;border:1px solid #1f2937;border-radius:18px}h2{color:#ef4444;margin-top:0}p{color:#9ca3af;font-size:14px;line-height:1.6}</style></head><body><div class='card'><h2>Database Initialization Error</h2><p>Unable to connect to local database engine. Check server logs for details.</p></div></body></html>");
     }
 }
 

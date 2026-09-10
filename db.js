@@ -456,9 +456,10 @@ module.exports = {
     return db.exec(sql);
   },
   transaction(fn) {
-    return db.exec("BEGIN IMMEDIATE;"), () => {
+    return (...args) => {
+      db.exec("BEGIN IMMEDIATE;");
       try {
-        const result = fn();
+        const result = fn(...args);
         db.exec("COMMIT;");
         return result;
       } catch (err) {

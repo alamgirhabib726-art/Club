@@ -149,6 +149,17 @@ th{color:#9ca3af}
 .apply{background:#0ea5e9;color:#022c22}
 .deposit{background:#fbbf24;color:#422006}
 
+.table-responsive{
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+}
+
+@media (max-width: 768px){
+    .wrap{ padding:12px; }
+    .card{ padding:16px; border-radius:18px; }
+}
+
 .back{
     display:block;
     margin-top:18px;
@@ -184,6 +195,7 @@ th{color:#9ca3af}
 <div class="card">
     <h2>📜 Coupon List</h2>
 
+    <div class="table-responsive">
     <table>
         <tr>
             <th>Code</th>
@@ -205,6 +217,7 @@ th{color:#9ca3af}
         <tr><td colspan="5">No coupons yet</td></tr>
         <?php endif; ?>
     </table>
+    </div>
 
     <a class="back" href="dashboard.php">← Back to Admin</a>
 </div>

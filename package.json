@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "bash run.sh",
     "start": "bash run.sh",
-    "build": "echo 'Build complete'"
+    "build": "echo 'Build complete'",
+    "lint": "node -c db.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

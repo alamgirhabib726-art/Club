@@ -195,6 +195,27 @@ a.btn{
 tr.negative-row{
     background:rgba(127,29,29,.35);
 }
+
+.table-responsive{
+    width:100%;
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+}
+
+@media (max-width: 768px){
+    .wrap{
+        padding:12px;
+    }
+    .card{
+        padding:16px;
+        border-radius:18px;
+    }
+    .header{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:8px;
+    }
+}
 </style>
 </head>
 
@@ -207,6 +228,7 @@ tr.negative-row{
     <div class="alert">🔻 Negative Balance: <?= $negativeCount ?></div>
 </div>
 
+<div class="table-responsive">
 <table>
 <tr>
     <th>Name</th>
@@ -287,6 +309,7 @@ $rowClass  = ($u['coins'] < 0 && $u['role'] === 'user') ? 'negative-row' : '';
 
 <?php endforeach; ?>
 </table>
+</div>
 
 </div>
 </div>

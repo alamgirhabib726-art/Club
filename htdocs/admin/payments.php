@@ -215,6 +215,14 @@ tr:last-child td{
     font-size:12px;
     color:var(--muted);
 }
+
+@media (max-width: 768px){
+    body{ padding:12px; }
+    h2{ font-size:20px; margin-bottom:12px; }
+    .filter{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+    .filter a{ margin-right:0; padding:6px 12px; background:#0f172a; border-radius:8px; font-size:13px; }
+    .filter a.active{ border-bottom:none; background:var(--yellow); color:#020617; }
+}
 </style>
 </head>
 

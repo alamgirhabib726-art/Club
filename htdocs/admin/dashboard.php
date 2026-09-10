@@ -207,6 +207,31 @@ body{
     background:var(--accent);
     box-shadow:0 0 10px rgba(34,197,94,.8);
 }
+
+/* =========================
+   MOBILE RESPONSIVE
+========================= */
+@media (max-width: 768px){
+    .sidebar{
+        position:static;
+        width:100%;
+        border-right:none;
+        border-bottom:1px solid var(--border);
+        padding:16px;
+    }
+    .main{
+        margin-left:0;
+        padding:18px 14px;
+    }
+    .header{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:6px;
+    }
+    .brand{
+        margin-bottom:14px;
+    }
+}
 </style>
 </head>
 

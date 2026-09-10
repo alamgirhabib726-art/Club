@@ -63,14 +63,15 @@ if ($user['role'] === 'user' && !empty($user['coin_cycle_start'])) {
         try {
 
             /* ========= CUT USER (CAN GO NEGATIVE) ========= */
+            $cutDate = date('Y-m-d H:i:s', strtotime($user['coin_cycle_start'] . " + " . (int)$newCutDays . " days"));
             $db->prepare("
                 UPDATE users
                 SET coins = coins - ?,
-                    last_coin_cut = DATE_ADD(coin_cycle_start, INTERVAL ? DAY)
+                    last_coin_cut = ?
                 WHERE id = ?
             ")->execute([
                 $pendingCuts,
-                $newCutDays,
+                $cutDate,
                 $user['id']
             ]);
 
