@@ -44,28 +44,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $db->beginTransaction();
                 try {
+                    $now = date('Y-m-d H:i:s');
                     $stmt = $db->prepare("UPDATE users SET $column = $column + ? WHERE id = ?");
                     $stmt->execute([$delta, $user['id']]);
 
                     if ($currency === 'coins') {
                         $stmt = $db->prepare("
-                            INSERT INTO coin_history (user_id, amount, source, created_at)
-                            VALUES (?, ?, ?, datetime('now'))
+                            INSERT INTO coin_history (user_id, amount, type, source, reference, created_at)
+                            VALUES (?, ?, 'admin_adjustment', ?, ?, ?)
                         ");
-                        $stmt->execute([$user['id'], $delta, ($action === 'add' ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT')]);
+                        $stmt->execute([
+                            $user['id'],
+                            $delta,
+                            ($action === 'add' ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT'),
+                            ($note ?: ($action === 'add' ? 'Admin Credited Balance' : 'Admin Debited Balance')),
+                            $now
+                        ]);
                     }
 
                     $stmt = $db->prepare("
                         INSERT INTO admin_balance_logs (admin_id, user_id, amount, note, created_at)
-                        VALUES (?, ?, ?, ?, datetime('now'))
+                        VALUES (?, ?, ?, ?, ?)
                     ");
                     $memo = "[$currency " . strtoupper($action) . "] " . ($note ?: 'Admin adjustment');
-                    $stmt->execute([$admin['id'], $user['id'], $delta, $memo]);
+                    $stmt->execute([$admin['id'], $user['id'], $delta, $memo, $now]);
 
-                    try {
-                        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-                           ->execute([$admin['id'], "Adjusted user #{$user['id']} $column by $delta"]);
-                    } catch (Throwable $t) {}
+                    log_admin_action($db, $admin['id'], "Adjusted user #{$user['id']} $column by $delta");
 
                     $db->commit();
                     $msg = "Successfully " . ($action === 'add' ? 'credited' : 'debited') . " " . number_format($amount, 2) . " " . ($currency === 'balance' ? 'BDT' : 'UC') . " for " . htmlspecialchars($user['name']);

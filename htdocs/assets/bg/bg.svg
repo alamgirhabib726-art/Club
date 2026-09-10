@@ -1,0 +1,233 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 1024" preserveAspectRatio="xMidYMid slice" width="100%" height="100%">
+  <defs>
+    <!-- Background Stone Texture Gradient -->
+    <radialGradient id="chamberGlow" cx="50%" cy="58%" r="65%">
+      <stop offset="0%" stop-color="#fdba74" stop-opacity="0.9" />
+      <stop offset="25%" stop-color="#c2410c" stop-opacity="0.8" />
+      <stop offset="55%" stop-color="#7c2d12" />
+      <stop offset="85%" stop-color="#431407" />
+      <stop offset="100%" stop-color="#1c0702" />
+    </radialGradient>
+
+    <!-- Sun Burst Radial Gradient -->
+    <radialGradient id="portalCore" cx="50%" cy="65%" r="45%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="12%" stop-color="#fffbeb" />
+      <stop offset="30%" stop-color="#fde047" />
+      <stop offset="55%" stop-color="#f59e0b" />
+      <stop offset="80%" stop-color="#ea580c" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#7c2d12" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Golden Stone Architecture Gradients -->
+    <linearGradient id="goldArch" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="35%" stop-color="#d97706" />
+      <stop offset="70%" stop-color="#b45309" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+
+    <linearGradient id="stoneBrick" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9a3412" />
+      <stop offset="50%" stop-color="#7c2d12" />
+      <stop offset="100%" stop-color="#581c0c" />
+    </linearGradient>
+
+    <linearGradient id="palmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#15803d" />
+      <stop offset="40%" stop-color="#166534" />
+      <stop offset="85%" stop-color="#14532d" />
+      <stop offset="100%" stop-color="#052e16" />
+    </linearGradient>
+
+    <linearGradient id="coinBedGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fde047" />
+      <stop offset="30%" stop-color="#eab308" />
+      <stop offset="70%" stop-color="#ca8a04" />
+      <stop offset="100%" stop-color="#713f12" />
+    </linearGradient>
+
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="25" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- 1. Background Terracotta Wall & Atmosphere -->
+  <rect width="1440" height="1024" fill="#2d0f07" />
+  <rect width="1440" height="1024" fill="url(#chamberGlow)" />
+
+  <!-- Stone Brick Masonry Pattern (Atmospheric Grid Lines) -->
+  <g stroke="#3b1106" stroke-width="3" opacity="0.45">
+    <!-- Horizontal Mortar Lines -->
+    <line x1="0" y1="90" x2="1440" y2="90" />
+    <line x1="0" y1="180" x2="1440" y2="180" />
+    <line x1="0" y1="270" x2="1440" y2="270" />
+    <line x1="0" y1="360" x2="1440" y2="360" />
+    <line x1="0" y1="450" x2="1440" y2="450" />
+    <line x1="0" y1="540" x2="1440" y2="540" />
+    <line x1="0" y1="630" x2="1440" y2="630" />
+    <line x1="0" y1="720" x2="1440" y2="720" />
+    <!-- Vertical Brick Joints -->
+    <line x1="140" y1="0" x2="140" y2="90" />
+    <line x1="320" y1="90" x2="320" y2="180" />
+    <line x1="180" y1="180" x2="180" y2="270" />
+    <line x1="390" y1="270" x2="390" y2="360" />
+    <line x1="1120" y1="0" x2="1120" y2="90" />
+    <line x1="1300" y1="90" x2="1300" y2="180" />
+    <line x1="1160" y1="180" x2="1160" y2="270" />
+    <line x1="1280" y1="270" x2="1280" y2="360" />
+  </g>
+
+  <!-- 2. Radiant Sun Beams Bursting Outward From Portal Center -->
+  <g opacity="0.75" mix-blend-mode="screen">
+    <!-- Radiating Ray Polygons -->
+    <polygon points="720,600 520,0 590,0" fill="#fef08a" opacity="0.3" />
+    <polygon points="720,600 640,0 720,0" fill="#ffffff" opacity="0.45" />
+    <polygon points="720,600 780,0 860,0" fill="#fef08a" opacity="0.3" />
+    <polygon points="720,600 960,0 1060,0" fill="#fde047" opacity="0.25" />
+    <polygon points="720,600 1200,80 1340,160" fill="#fde047" opacity="0.2" />
+    <polygon points="720,600 1380,300 1440,380" fill="#f59e0b" opacity="0.3" />
+    <polygon points="720,600 1440,520 1440,640" fill="#ea580c" opacity="0.25" />
+    <polygon points="720,600 1440,780 1380,880" fill="#f59e0b" opacity="0.2" />
+    <!-- Left Radiating Rays -->
+    <polygon points="720,600 380,0 480,0" fill="#fde047" opacity="0.25" />
+    <polygon points="720,600 180,80 80,160" fill="#fde047" opacity="0.2" />
+    <polygon points="720,600 0,300 0,400" fill="#f59e0b" opacity="0.3" />
+    <polygon points="720,600 0,520 0,640" fill="#ea580c" opacity="0.25" />
+    <polygon points="720,600 40,780 120,880" fill="#f59e0b" opacity="0.2" />
+  </g>
+
+  <!-- 3. Ancient Portal Architecture (Mayan/Inca Golden Temple Gate) -->
+  <g filter="url(#softGlow)" opacity="0.15">
+    <rect x="420" y="240" width="600" height="660" fill="#f59e0b" />
+  </g>
+
+  <!-- Stepped Temple Lintel Cornice (Top Arch Structure) -->
+  <g>
+    <!-- Base Top Step -->
+    <polygon points="460,220 980,220 940,180 500,180" fill="url(#goldArch)" stroke="#78350f" stroke-width="4" />
+    <!-- Topmost Stepped Cap -->
+    <polygon points="510,180 930,180 890,140 550,140" fill="#b45309" stroke="#78350f" stroke-width="4" />
+    <polygon points="560,140 880,140 850,110 590,110" fill="#d97706" stroke="#78350f" stroke-width="4" />
+
+    <!-- Frieze Carvings Details -->
+    <g fill="#78350f" opacity="0.7">
+      <rect x="520" y="190" width="40" height="20" rx="3" />
+      <rect x="580" y="190" width="40" height="20" rx="3" />
+      <rect x="640" y="190" width="40" height="20" rx="3" />
+      <rect x="700" y="190" width="40" height="20" rx="3" />
+      <rect x="760" y="190" width="40" height="20" rx="3" />
+      <rect x="820" y="190" width="40" height="20" rx="3" />
+      <rect x="880" y="190" width="40" height="20" rx="3" />
+    </g>
+
+    <!-- Main Portal Jambs (Left & Right Pillars) -->
+    <!-- Left Heavy Pillar -->
+    <polygon points="430,220 540,260 540,840 400,840" fill="url(#goldArch)" stroke="#78350f" stroke-width="5" />
+    <!-- Right Heavy Pillar -->
+    <polygon points="1010,220 900,260 900,840 1040,840" fill="url(#goldArch)" stroke="#78350f" stroke-width="5" />
+    <!-- Horizontal Cross Lintel -->
+    <rect x="430" y="220" width="580" height="65" fill="#ca8a04" stroke="#78350f" stroke-width="5" />
+
+    <!-- Inner Stepped Jamb Reliefs -->
+    <polygon points="540,285 580,320 580,820 540,840" fill="#92400e" stroke="#78350f" stroke-width="3" />
+    <polygon points="900,285 860,320 860,820 900,840" fill="#92400e" stroke="#78350f" stroke-width="3" />
+    <rect x="540" y="285" width="360" height="35" fill="#92400e" stroke="#78350f" stroke-width="3" />
+
+    <!-- Step-Fret Carvings on Left Pillar -->
+    <g fill="#78350f" opacity="0.6">
+      <rect x="440" y="320" width="60" height="35" rx="3" />
+      <rect x="440" y="400" width="60" height="35" rx="3" />
+      <rect x="440" y="480" width="60" height="35" rx="3" />
+      <rect x="440" y="560" width="60" height="35" rx="3" />
+      <rect x="440" y="640" width="60" height="35" rx="3" />
+      <rect x="440" y="720" width="60" height="35" rx="3" />
+    </g>
+
+    <!-- Step-Fret Carvings on Right Pillar -->
+    <g fill="#78350f" opacity="0.6">
+      <rect x="940" y="320" width="60" height="35" rx="3" />
+      <rect x="940" y="400" width="60" height="35" rx="3" />
+      <rect x="940" y="480" width="60" height="35" rx="3" />
+      <rect x="940" y="560" width="60" height="35" rx="3" />
+      <rect x="940" y="640" width="60" height="35" rx="3" />
+      <rect x="940" y="720" width="60" height="35" rx="3" />
+    </g>
+  </g>
+
+  <!-- 4. Portal Sun Chamber Gateway (Intense Radiant Light) -->
+  <rect x="580" y="320" width="280" height="500" fill="url(#portalCore)" />
+  <circle cx="720" cy="580" r="300" fill="url(#portalCore)" />
+  <circle cx="720" cy="580" r="140" fill="#ffffff" opacity="0.95" filter="url(#softGlow)" />
+
+  <!-- 5. Tropical Jungle Palm Leaves (Flanking Upper Left and Upper Right) -->
+  <!-- Upper Left Hanging Leaves -->
+  <g>
+    <!-- Big Leaf 1 -->
+    <path d="M -60,-40 Q 120,80 240,320 Q 150,220 -40,110 Z" fill="url(#palmGrad)" />
+    <path d="M 0,0 Q 160,110 320,380 Q 200,260 0,160 Z" fill="url(#palmGrad)" opacity="0.9" />
+    <!-- Leaf 2 (Upper Corner Fronds) -->
+    <path d="M -80,120 Q 90,190 180,480 Q 110,320 -80,240 Z" fill="url(#palmGrad)" />
+    <!-- Center Vein Accents -->
+    <path d="M -60,-40 Q 120,80 240,320" stroke="#16a34a" stroke-width="4" fill="none" opacity="0.6" />
+    <path d="M 0,0 Q 160,110 320,380" stroke="#16a34a" stroke-width="4" fill="none" opacity="0.6" />
+  </g>
+
+  <!-- Upper Right Hanging Leaves -->
+  <g>
+    <!-- Big Leaf 1 -->
+    <path d="M 1500,-40 Q 1320,80 1200,320 Q 1290,220 1480,110 Z" fill="url(#palmGrad)" />
+    <path d="M 1440,0 Q 1280,110 1120,380 Q 1240,260 1440,160 Z" fill="url(#palmGrad)" opacity="0.9" />
+    <!-- Leaf 2 -->
+    <path d="M 1520,120 Q 1350,190 1260,480 Q 1330,320 1520,240 Z" fill="url(#palmGrad)" />
+    <!-- Center Vein Accents -->
+    <path d="M 1500,-40 Q 1320,80 1200,320" stroke="#16a34a" stroke-width="4" fill="none" opacity="0.6" />
+    <path d="M 1440,0 Q 1280,110 1120,380" stroke="#16a34a" stroke-width="4" fill="none" opacity="0.6" />
+  </g>
+
+  <!-- 6. Golden Treasure Coin Mound (Foreground Base) -->
+  <g>
+    <!-- Base Dune Contour -->
+    <path d="M 0,840 Q 360,780 720,820 Q 1080,780 1440,840 L 1440,1024 L 0,1024 Z" fill="url(#coinBedGrad)" />
+    <path d="M 0,880 Q 420,820 720,850 Q 1040,810 1440,880 L 1440,1024 L 0,1024 Z" fill="#ca8a04" opacity="0.6" />
+    <path d="M 0,930 Q 320,870 720,910 Q 1120,860 1440,930 L 1440,1024 L 0,1024 Z" fill="#a16207" opacity="0.8" />
+
+    <!-- Individual Scattered Gold Coin Details Across the Mound -->
+    <g fill="#fde047" stroke="#854d0e" stroke-width="1.5">
+      <ellipse cx="260" cy="850" rx="14" ry="7" transform="rotate(-15 260 850)" />
+      <ellipse cx="290" cy="845" rx="15" ry="8" transform="rotate(10 290 845)" />
+      <ellipse cx="320" cy="855" rx="16" ry="8" transform="rotate(-5 320 855)" />
+      <ellipse cx="350" cy="840" rx="14" ry="7" transform="rotate(25 350 840)" />
+      <ellipse cx="480" cy="835" rx="15" ry="7" transform="rotate(-10 480 835)" />
+      <ellipse cx="510" cy="830" rx="16" ry="8" transform="rotate(15 510 830)" />
+      <ellipse cx="540" cy="840" rx="15" ry="7" transform="rotate(-20 540 840)" />
+      <ellipse cx="680" cy="830" rx="15" ry="8" transform="rotate(5 680 830)" />
+      <ellipse cx="710" cy="825" rx="17" ry="9" fill="#fef08a" transform="rotate(-12 710 825)" />
+      <ellipse cx="740" cy="828" rx="16" ry="8" transform="rotate(18 740 828)" />
+      <ellipse cx="770" cy="832" rx="15" ry="7" transform="rotate(-8 770 832)" />
+      <ellipse cx="900" cy="835" rx="16" ry="8" transform="rotate(14 900 835)" />
+      <ellipse cx="930" cy="830" rx="15" ry="7" transform="rotate(-16 930 830)" />
+      <ellipse cx="960" cy="840" rx="17" ry="8" transform="rotate(10 960 840)" />
+      <ellipse cx="1080" cy="845" rx="15" ry="7" transform="rotate(-15 1080 845)" />
+      <ellipse cx="1110" cy="840" rx="16" ry="8" transform="rotate(22 1110 840)" />
+      <ellipse cx="1140" cy="850" rx="14" ry="7" transform="rotate(-5 1140 850)" />
+      <!-- Lower Dense Layer -->
+      <ellipse cx="400" cy="890" rx="18" ry="9" transform="rotate(8 400 890)" />
+      <ellipse cx="440" cy="885" rx="17" ry="8" transform="rotate(-14 440 885)" />
+      <ellipse cx="620" cy="875" rx="19" ry="9" fill="#fef08a" transform="rotate(20 620 875)" />
+      <ellipse cx="660" cy="870" rx="18" ry="9" transform="rotate(-10 660 870)" />
+      <ellipse cx="800" cy="880" rx="18" ry="9" transform="rotate(12 800 880)" />
+      <ellipse cx="840" cy="875" rx="17" ry="8" transform="rotate(-18 840 875)" />
+      <ellipse cx="1020" cy="890" rx="19" ry="9" transform="rotate(15 1020 890)" />
+    </g>
+
+    <!-- Coin Sparkles -->
+    <g fill="#ffffff">
+      <polygon points="710,815 712,820 717,822 712,824 710,829 708,824 703,822 708,820" />
+      <polygon points="515,820 517,823 521,824 517,825 515,828 513,825 509,824 513,823" />
+      <polygon points="935,820 937,823 941,824 937,825 935,828 933,825 929,824 933,823" />
+      <polygon points="625,865 627,868 631,869 627,870 625,873 623,870 619,869 623,868" />
+    </g>
+  </g>
+</svg>

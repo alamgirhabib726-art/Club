@@ -7,24 +7,34 @@ if (!isset($_SESSION['user_id'])) exit;
 $method = $_POST['method'];
 $invoice = $_POST['invoice_id'];
 
-$proof = $_FILES['proof'];
-$ext = pathinfo($proof['name'], PATHINFO_EXTENSION);
-$name = $invoice . "." . $ext;
+$proof = $_FILES['proof'] ?? null;
+$ext = strtolower(pathinfo($proof['name'] ?? '', PATHINFO_EXTENSION));
+$allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+if (!in_array($ext, $allowedExts, true)) {
+    $ext = 'jpg';
+}
+$name = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)$invoice) . "_" . time() . "." . $ext;
 
-if (!is_dir("uploads")) mkdir("uploads",0777,true);
-move_uploaded_file($proof['tmp_name'], "uploads/".$name);
+if (!is_dir(__DIR__ . "/uploads")) {
+    mkdir(__DIR__ . "/uploads", 0755, true);
+}
+if (!empty($proof['tmp_name'])) {
+    move_uploaded_file($proof['tmp_name'], __DIR__ . "/uploads/" . $name);
+}
 
+$now = date('Y-m-d H:i:s');
 $db->prepare("
 INSERT INTO payments
 (user_id,type,product_id,amount,method,proof,status,created_at)
-VALUES (?,?,?,?,?,?, 'pending', datetime('now'))
+VALUES (?,?,?,?,?,?, 'pending', ?)
 ")->execute([
     $_SESSION['user_id'],
     'purchase',
-    $_POST['product_id'],
-    $_POST['amount'],
+    $_POST['product_id'] ?? null,
+    $_POST['amount'] ?? 0,
     $method,
-    $name
+    $name,
+    $now
 ]);
 
 header("Location: dashboard.php");

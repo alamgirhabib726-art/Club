@@ -58,6 +58,7 @@ function bootstrap() {
       user_id INTEGER NOT NULL,
       amount REAL NOT NULL DEFAULT 0.0000,
       type TEXT NOT NULL,
+      source TEXT,
       reference TEXT,
       change REAL,
       source_name TEXT,
@@ -346,6 +347,12 @@ function bootstrap() {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  try {
+    db.exec("ALTER TABLE coin_history ADD COLUMN source TEXT");
+  } catch (e) {
+    // Column already exists
+  }
 
   // Seed default users if empty
   const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get().count;

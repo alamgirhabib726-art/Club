@@ -18,10 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$k, trim((string)$v)]);
     }
 
-    try {
-        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-           ->execute([$admin['id'], "Updated global system settings"]);
-    } catch (Throwable $t) {}
+    log_admin_action($db, $admin['id'], "Updated global system settings");
 
     $msg = "System parameters saved successfully.";
 }

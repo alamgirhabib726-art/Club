@@ -113,6 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $actualOutcome = $isWin ? $choice : ($choice === 'head' ? 'tail' : 'head');
     $payoutRate = 0.80; // 80% profit on win
     $profit = round($bet * $payoutRate, 2);
+    $now = date('Y-m-d H:i:s');
 
     /* ATOMIC GAME TRANSACTION */
     $db->beginTransaction();
@@ -121,14 +122,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($ctrl) {
             $db->prepare("
                 UPDATE game_control
-                SET last_bet = ?, plays = plays + 1, last_play = datetime('now')
+                SET last_bet = ?, plays = plays + 1, last_play = ?
                 WHERE user_id = ?
-            ")->execute([$bet, $uid]);
+            ")->execute([$bet, $now, $uid]);
         } else {
             $db->prepare("
                 INSERT INTO game_control (user_id, last_bet, plays, last_play)
-                VALUES (?, ?, 1, datetime('now'))
-            ")->execute([$uid, $bet]);
+                VALUES (?, ?, 1, ?)
+            ")->execute([$uid, $bet, $now]);
         }
 
         if ($isWin) {
@@ -139,20 +140,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Insert Bet Record
             $db->prepare("
                 INSERT INTO headtail_bets (user_id, choice, result, bet_amount, profit, created_at)
-                VALUES (?, ?, ?, ?, ?, datetime('now'))
-            ")->execute([$uid, $choice, $actualOutcome, $bet, $profit]);
+                VALUES (?, ?, ?, ?, ?, ?)
+            ")->execute([$uid, $choice, $actualOutcome, $bet, $profit, $now]);
 
             // User Coin History
             $db->prepare("
                 INSERT INTO coin_history (user_id, amount, type, reference, source_name, created_at)
-                VALUES (?, ?, 'game_win', ?, 'Head / Tail Mini Game', datetime('now'))
-            ")->execute([$uid, $profit, "Wager: 🪙{$bet}, Choice: {$choice}, Result: {$actualOutcome}"]);
+                VALUES (?, ?, 'game_win', ?, 'Head / Tail Mini Game', ?)
+            ")->execute([$uid, $profit, "Wager: 🪙{$bet}, Choice: {$choice}, Result: {$actualOutcome}", $now]);
 
             // System Ledger
             $db->prepare("
                 INSERT INTO system_ledger (type, amount, source, reference, created_at)
-                VALUES ('game_payout', ?, 'headtail', ?, datetime('now'))
-            ")->execute([-$profit, "User #{$uid} won with {$choice}"]);
+                VALUES ('game_payout', ?, 'headtail', ?, ?)
+            ")->execute([-$profit, "User #{$uid} won with {$choice}", $now]);
 
             $balances['coins'] += $profit;
             $balances['total_coins'] += $profit;
@@ -165,20 +166,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Insert Bet Record
             $db->prepare("
                 INSERT INTO headtail_bets (user_id, choice, result, bet_amount, profit, created_at)
-                VALUES (?, ?, ?, ?, ?, datetime('now'))
-            ")->execute([$uid, $choice, $actualOutcome, $bet, -$bet]);
+                VALUES (?, ?, ?, ?, ?, ?)
+            ")->execute([$uid, $choice, $actualOutcome, $bet, -$bet, $now]);
 
             // User Coin History
             $db->prepare("
                 INSERT INTO coin_history (user_id, amount, type, reference, source_name, created_at)
-                VALUES (?, ?, 'game_loss', ?, 'Head / Tail Mini Game', datetime('now'))
-            ")->execute([$uid, -$bet, "Wager: 🪙{$bet}, Choice: {$choice}, Result: {$actualOutcome}"]);
+                VALUES (?, ?, 'game_loss', ?, 'Head / Tail Mini Game', ?)
+            ")->execute([$uid, -$bet, "Wager: 🪙{$bet}, Choice: {$choice}, Result: {$actualOutcome}", $now]);
 
             // System Ledger
             $db->prepare("
                 INSERT INTO system_ledger (type, amount, source, reference, created_at)
-                VALUES ('game_income', ?, 'headtail', ?, datetime('now'))
-            ")->execute([$bet, "User #{$uid} lost with {$choice}"]);
+                VALUES ('game_income', ?, 'headtail', ?, ?)
+            ")->execute([$bet, "User #{$uid} lost with {$choice}", $now]);
 
             $balances['coins'] -= $bet;
             $balances['total_coins'] -= $bet;

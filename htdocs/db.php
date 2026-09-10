@@ -10,7 +10,7 @@
 $dbUrl = getenv('MYSQL_URL') ?: (getenv('DATABASE_URL') ?: '');
 $DB_HOST = '127.0.0.1';
 $DB_PORT = '3306';
-$DB_NAME = 'if0_40736960_club';
+$DB_NAME = 'unmoor_club';
 $DB_USER = 'root';
 $DB_PASS = '';
 
@@ -20,21 +20,25 @@ if (!empty($dbUrl) && str_starts_with($dbUrl, 'mysql://')) {
     $DB_PORT = (string)($parsedUrl['port'] ?? '3306');
     $DB_USER = $parsedUrl['user'] ?? 'root';
     $DB_PASS = $parsedUrl['pass'] ?? '';
-    $DB_NAME = ltrim($parsedUrl['path'] ?? 'if0_40736960_club', '/');
+    $DB_NAME = ltrim($parsedUrl['path'] ?? 'unmoor_club', '/');
 } else {
     $DB_HOST = getenv('MYSQLHOST') ?: (getenv('MYSQL_HOST') ?: (getenv('DB_HOST') ?: '127.0.0.1'));
     $DB_PORT = getenv('MYSQLPORT') ?: (getenv('MYSQL_PORT') ?: (getenv('DB_PORT') ?: '3306'));
-    $DB_NAME = getenv('MYSQLDATABASE') ?: (getenv('MYSQL_DATABASE') ?: (getenv('DB_NAME') ?: 'if0_40736960_club'));
-    $DB_USER = getenv('MYSQLUSER') ?: (getenv('MYSQL_USER') ?: (getenv('DB_USER') ?: (getenv('DB_HOST') ? 'if0_40736960' : 'root')));
-    $DB_PASS = getenv('MYSQLPASSWORD') ?: (getenv('MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: (getenv('DB_HOST') ? 'kUTjS5kXvmO' : '')));
+    $DB_NAME = getenv('MYSQLDATABASE') ?: (getenv('MYSQL_DATABASE') ?: (getenv('DB_NAME') ?: 'unmoor_club'));
+    $DB_USER = getenv('MYSQLUSER') ?: (getenv('MYSQL_USER') ?: (getenv('DB_USER') ?: 'root'));
+    $DB_PASS = getenv('MYSQLPASSWORD') ?: (getenv('MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: ''));
 }
 
 $pdoOptions = [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4",
-    PDO::MYSQL_ATTR_MULTI_STATEMENTS => true
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
 ];
+if (defined('PDO::MYSQL_ATTR_INIT_COMMAND')) {
+    $pdoOptions[PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES utf8mb4";
+}
+if (defined('PDO::MYSQL_ATTR_MULTI_STATEMENTS')) {
+    $pdoOptions[PDO::MYSQL_ATTR_MULTI_STATEMENTS] = true;
+}
 
 $db = null;
 
@@ -81,6 +85,29 @@ function bootstrapDatabaseIfEmpty($pdo) {
             // Column already exists
         }
 
+        // Fix missing source column in coin_history (prevents "no such column: source" error on deposit/approval)
+        try {
+            if ($driver === 'mysql') {
+                $pdo->exec("ALTER TABLE coin_history ADD COLUMN source VARCHAR(191) DEFAULT NULL");
+            } else {
+                $pdo->exec("ALTER TABLE coin_history ADD COLUMN source TEXT DEFAULT NULL");
+            }
+        } catch (Throwable $t) {
+            // Column already exists
+        }
+
+        try {
+            if ($driver === 'mysql') {
+                $pdo->exec("ALTER TABLE coin_history ADD COLUMN source_name VARCHAR(191) DEFAULT NULL");
+                $pdo->exec("ALTER TABLE coin_history ADD COLUMN source_number VARCHAR(64) DEFAULT NULL");
+                $pdo->exec("ALTER TABLE coin_history ADD COLUMN source_user_id INT DEFAULT NULL");
+            } else {
+                $pdo->exec("ALTER TABLE coin_history ADD COLUMN source_name TEXT DEFAULT NULL");
+                $pdo->exec("ALTER TABLE coin_history ADD COLUMN source_number TEXT DEFAULT NULL");
+                $pdo->exec("ALTER TABLE coin_history ADD COLUMN source_user_id INTEGER DEFAULT NULL");
+            }
+        } catch (Throwable $t) {}
+
         try {
             if ($driver === 'sqlite') {
                 $pdo->exec("CREATE TABLE IF NOT EXISTS headtail_bets (
@@ -100,6 +127,27 @@ function bootstrapDatabaseIfEmpty($pdo) {
                     reference TEXT,
                     created_at TEXT DEFAULT (datetime('now'))
                 )");
+                $pdo->exec("CREATE TABLE IF NOT EXISTS chat_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    sender_id INTEGER NOT NULL,
+                    receiver_id INTEGER NOT NULL,
+                    message TEXT,
+                    image TEXT,
+                    seen INTEGER DEFAULT 0,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )");
+            } else {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS chat_messages (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    sender_id INT NOT NULL,
+                    receiver_id INT NOT NULL,
+                    message TEXT,
+                    image VARCHAR(255),
+                    seen TINYINT DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (sender_id),
+                    INDEX (receiver_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             }
         } catch (Throwable $t) {}
 
@@ -340,7 +388,7 @@ try {
         $db = new PDO($dsn, $DB_USER, $DB_PASS, $pdoOptions);
         bootstrapDatabaseIfEmpty($db);
     } elseif (getenv('DB_DRIVER') === 'mysql') {
-        $db = new PDO("mysql:host=127.0.0.1;dbname=if0_40736960_club;charset=utf8mb4", "root", "", $pdoOptions);
+        $db = new PDO("mysql:host=127.0.0.1;dbname=$DB_NAME;charset=utf8mb4", "root", "", $pdoOptions);
         bootstrapDatabaseIfEmpty($db);
     } else {
         // Single local development source of truth

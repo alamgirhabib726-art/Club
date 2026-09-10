@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'clear_chats') {
         try {
-            $db->prepare("DELETE FROM messages WHERE user_id = ?")->execute([$uid]);
+            $db->prepare("DELETE FROM chat_messages WHERE sender_id = ? OR receiver_id = ?")->execute([$uid, $uid]);
             $msg = "Chat messages cleared successfully.";
         } catch (Throwable $t) {
             $msg = "Chat records cleared.";

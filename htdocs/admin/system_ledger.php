@@ -17,7 +17,9 @@ $system = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$system) {
     // If system account doesn't exist, create it
-    $db->exec("INSERT INTO users (name, phone, role, status, coins, created_at) VALUES ('SYSTEM', '00000000000', 'system', 'active', 1000000, datetime('now'))");
+    $now = date('Y-m-d H:i:s');
+    $stmtSys = $db->prepare("INSERT INTO users (name, phone, role, status, coins, created_at) VALUES ('SYSTEM', '00000000000', 'system', 'active', 1000000, ?)");
+    $stmtSys->execute([$now]);
     $system = ['id' => $db->lastInsertId(), 'coins' => 1000000];
 }
 
@@ -34,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $db->beginTransaction();
         try {
+            $now = date('Y-m-d H:i:s');
             $stmt = $db->prepare("
                 UPDATE users
                 SET coins = coins - ?
@@ -42,16 +45,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$cash, $system['id']]);
 
             $stmt = $db->prepare("
-                INSERT INTO coin_history (user_id, amount, source, created_at)
-                VALUES (?, ?, 'SYSTEM_CASHOUT', datetime('now'))
+                INSERT INTO coin_history (user_id, amount, type, source, reference, created_at)
+                VALUES (?, ?, 'system_cashout', 'SYSTEM_CASHOUT', 'System Treasury Cashout', ?)
             ");
-            $stmt->execute([$system['id'], -$cash]);
+            $stmt->execute([$system['id'], -$cash, $now]);
 
             $stmt = $db->prepare("
                 INSERT INTO admin_balance_logs (admin_id, user_id, amount, note, created_at)
-                VALUES (?, ?, ?, 'System Treasury Cashout', datetime('now'))
+                VALUES (?, ?, ?, 'System Treasury Cashout', ?)
             ");
-            $stmt->execute([$admin['id'], $system['id'], -$cash]);
+            $stmt->execute([$admin['id'], $system['id'], -$cash, $now]);
 
             $db->commit();
             $msg = "System treasury cashout of 🪙 $cash processed successfully.";

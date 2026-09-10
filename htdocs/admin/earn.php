@@ -28,10 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add'])) {
                 VALUES (?, ?, 'active')
             ")->execute([$title, $link]);
 
-            try {
-                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-                   ->execute([$admin['id'], "Added earn button: $title"]);
-            } catch (Throwable $t) {}
+            log_admin_action($db, $admin['id'], "Added earn button: $title");
 
             $msg = "Earn button added successfully.";
         }
@@ -60,10 +57,7 @@ if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
     $db->prepare("DELETE FROM earn_buttons WHERE id=?")->execute([$id]);
 
-    try {
-        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-           ->execute([$admin['id'], "Deleted earn button #$id"]);
-    } catch (Throwable $t) {}
+    log_admin_action($db, $admin['id'], "Deleted earn button #$id");
 
     $msg = "Earn button deleted.";
 }

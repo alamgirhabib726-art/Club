@@ -5,6 +5,7 @@
 
 session_start();
 require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/core/config.php";
 require_once __DIR__ . "/core/components.php";
 
 /* ================= LOGIN ================= */
@@ -33,8 +34,8 @@ if ($user['status'] !== 'active' && $user['status'] !== 'premium') {
     exit;
 }
 
-/* ================= CONFIG ================= */
-$PAY_NUMBER = "01788674353";
+/* ================= CONFIG (UNIFIED SOURCE) ================= */
+$PAY_NUMBER = PAYMENT_NUMBER;
 $methods = [
     'bkash' => 'bKash (Send Money)',
     'nagad' => 'Nagad (Send Money)'
@@ -92,24 +93,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['apply_coupon'])) {
                     $coins
                 ]);
 
-                $db->prepare("
+                $cpUpd = $db->prepare("
                     UPDATE coupons
                     SET status = 'used',
                         used_by = ?,
                         used_at = NOW()
-                    WHERE id = ?
-                ")->execute([
+                    WHERE id = ? AND status = 'active' AND used_by IS NULL
+                ");
+                $cpUpd->execute([
                     $user['id'],
                     $coupon['id']
                 ]);
+
+                if ($cpUpd->rowCount() === 0) {
+                    throw new Exception("Coupon has already been redeemed.");
+                }
 
                 $db->commit();
                 $msg = "✅ Successfully redeemed coupon for 🪙" . number_format($coins, 2) . " coins!";
                 $user['coins'] += $coins;
 
             } catch (Exception $e) {
-                $db->rollBack();
-                $error = "❌ Coupon processing failed. Try again.";
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                $error = "❌ " . $e->getMessage();
             }
         }
     }
@@ -119,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['apply_coupon'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_deposit'])) {
 
     $amount = (float)($_POST['amount'] ?? 0);
-    $method = $_POST['method'] ?? '';
+    $method = trim($_POST['method'] ?? '');
 
     if ($amount <= 0) {
         $error = "Please enter a valid deposit amount.";
@@ -129,6 +137,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_deposit'])) {
     }
     elseif (!isset($_FILES['proof']) || $_FILES['proof']['error'] !== UPLOAD_ERR_OK) {
         $error = "Payment screenshot proof is required.";
+    }
+    elseif (($_FILES['proof']['size'] ?? 0) > 8 * 1024 * 1024) {
+        $error = "Screenshot file is too large (maximum 8MB).";
     }
     else {
 
@@ -140,27 +151,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_deposit'])) {
         $allowed = ['jpg','jpeg','png','webp'];
         $ext = strtolower(pathinfo($_FILES['proof']['name'], PATHINFO_EXTENSION));
 
-        if (!in_array($ext, $allowed)) {
-            $error = "Only JPG, PNG or WEBP images allowed.";
+        if (!in_array($ext, $allowed, true)) {
+            $error = "Only JPG, JPEG, PNG or WEBP images allowed.";
         } else {
-            $file = "deposit_" . time() . "_" . rand(100,999) . "." . $ext;
 
-            if (!move_uploaded_file($_FILES['proof']['tmp_name'], $dir . "/" . $file)) {
-                $error = "Screenshot upload failed. Please try again.";
+            $validMimes = ['image/jpeg', 'image/pjpeg', 'image/png', 'image/x-png', 'image/webp'];
+            $detectedMime = '';
+            if (function_exists('finfo_open')) {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $detectedMime = finfo_file($finfo, $_FILES['proof']['tmp_name']);
+                finfo_close($finfo);
+            }
+
+            if ($detectedMime && !in_array($detectedMime, $validMimes, true)) {
+                $error = "The uploaded file is not a valid image.";
             } else {
 
-                $db->prepare("
-                    INSERT INTO payments
-                    (user_id, type, amount, method, proof, status, created_at)
-                    VALUES (?, 'deposit', ?, ?, ?, 'pending', NOW())
-                ")->execute([
-                    $user['id'],
-                    $amount,
-                    $method,
-                    $file
-                ]);
+                $file = "deposit_" . time() . "_" . bin2hex(random_bytes(6)) . "." . $ext;
+                $destination = $dir . "/" . $file;
 
-                $msg = "✅ Deposit of ৳" . number_format($amount, 2) . " submitted. Awaiting admin approval.";
+                if (!move_uploaded_file($_FILES['proof']['tmp_name'], $destination)) {
+                    $error = "Screenshot upload failed. Please try again.";
+                } else {
+
+                    $db->prepare("
+                        INSERT INTO payments
+                        (user_id, type, amount, method, proof, status, created_at)
+                        VALUES (?, 'deposit', ?, ?, ?, 'pending', NOW())
+                    ")->execute([
+                        $user['id'],
+                        $amount,
+                        $method,
+                        $file
+                    ]);
+
+                    $msg = "✅ Deposit of ৳" . number_format($amount, 2) . " submitted. Awaiting admin approval.";
+                }
             }
         }
     }

@@ -1,0 +1,140 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account and profile document in Firestore",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique user ID matching authentication UID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the user",
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "description": "User mobile phone number",
+          "maxLength": 20
+        },
+        "role": {
+          "type": "string",
+          "description": "Role within Unmoor Club (user, admin, system)",
+          "enum": ["user", "admin", "system"]
+        },
+        "coins": {
+          "type": "number",
+          "description": "Current club coin balance"
+        },
+        "status": {
+          "type": "string",
+          "description": "Account approval status",
+          "enum": ["active", "pending", "banned"]
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp when the profile was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp when the profile was last updated"
+        }
+      },
+      "required": ["userId", "name", "role", "coins", "status", "createdAt"]
+    },
+    "PaymentDeposit": {
+      "title": "PaymentDeposit",
+      "description": "Payment or deposit request submitted by a user",
+      "type": "object",
+      "properties": {
+        "paymentId": {
+          "type": "string",
+          "description": "Unique transaction ID"
+        },
+        "userId": {
+          "type": "string",
+          "description": "ID of user who submitted payment"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Deposit amount in BDT or Coins"
+        },
+        "method": {
+          "type": "string",
+          "description": "Payment method (bkash, nagad, rocket, coupon, manual)",
+          "maxLength": 50
+        },
+        "type": {
+          "type": "string",
+          "description": "Payment category (deposit, apply, premium, coupon)",
+          "enum": ["deposit", "apply", "premium", "coupon", "purchase"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Processing status",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Submission timestamp"
+        }
+      },
+      "required": ["paymentId", "userId", "amount", "type", "status", "createdAt"]
+    },
+    "CoinHistory": {
+      "title": "CoinHistory",
+      "description": "Ledger entry for coin credits, debits, or transfers",
+      "type": "object",
+      "properties": {
+        "historyId": {
+          "type": "string",
+          "description": "Unique ledger entry ID"
+        },
+        "userId": {
+          "type": "string",
+          "description": "User account credited or debited"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Coin delta amount"
+        },
+        "type": {
+          "type": "string",
+          "description": "Transaction type category",
+          "maxLength": 64
+        },
+        "source": {
+          "type": "string",
+          "description": "Source origin of transaction",
+          "maxLength": 191
+        },
+        "reference": {
+          "type": "string",
+          "description": "Human-readable description or order reference",
+          "maxLength": 255
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp of ledger record"
+        }
+      },
+      "required": ["historyId", "userId", "amount", "type", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile collection"
+    },
+    "/payments/{paymentId}": {
+      "schema": "PaymentDeposit",
+      "description": "User deposit and application payment collection"
+    },
+    "/coin_history/{historyId}": {
+      "schema": "CoinHistory",
+      "description": "Coin transaction history ledger"
+    }
+  }
+}

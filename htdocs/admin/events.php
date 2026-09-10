@@ -16,15 +16,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_event'])) {
     if ($title === '' || $desc === '' || $cost < 0) {
         $error = "All fields are required and coin entry cost must be 0 or higher.";
     } else {
+        $now = date('Y-m-d H:i:s');
         $db->prepare("
             INSERT INTO events (title, description, coin_cost, status, created_at)
-            VALUES (?, ?, ?, 'active', datetime('now'))
-        ")->execute([$title, $desc, $cost]);
+            VALUES (?, ?, ?, 'active', ?)
+        ")->execute([$title, $desc, $cost, $now]);
 
-        try {
-            $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-               ->execute([$admin['id'], "Created event: " . $title]);
-        } catch (Throwable $t) {}
+        log_admin_action($db, $admin['id'], "Created event: " . $title);
 
         $msg = "Event created successfully.";
     }
@@ -37,10 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_event'])) {
     $db->prepare("DELETE FROM events WHERE id=?")->execute([$eventId]);
     $db->prepare("DELETE FROM event_participants WHERE event_id=?")->execute([$eventId]);
 
-    try {
-        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-           ->execute([$admin['id'], "Deleted event #$eventId"]);
-    } catch (Throwable $t) {}
+    log_admin_action($db, $admin['id'], "Deleted event #$eventId");
 
     $msg = "Event deleted successfully.";
 }

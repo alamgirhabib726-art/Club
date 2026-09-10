@@ -68,7 +68,8 @@ $systemId = $db->query("
 ")->fetchColumn();
 
 if (!$systemId) {
-    $db->exec("INSERT INTO users (name, phone, role, status, coins, created_at) VALUES ('SYSTEM', '00000000000', 'system', 'active', 1000000, datetime('now'))");
+    $now = date('Y-m-d H:i:s');
+    $db->prepare("INSERT INTO users (name, phone, role, status, coins, created_at) VALUES ('SYSTEM', '00000000000', 'system', 'active', 1000000, ?)")->execute([$now]);
     $systemId = $db->lastInsertId();
 }
 
@@ -94,8 +95,8 @@ try {
         ")->execute([$payment['user_id']]);
         
         $db->prepare("
-            INSERT INTO coin_history (user_id, amount, source, created_at)
-            VALUES (?, 5, 'REGISTRATION_BONUS', $nowExpr)
+            INSERT INTO coin_history (user_id, amount, type, source, reference, created_at)
+            VALUES (?, 5, 'apply_bonus', 'REGISTRATION_BONUS', 'Registration bonus', $nowExpr)
         ")->execute([$payment['user_id']]);
     }
 
@@ -125,8 +126,8 @@ try {
             ")->execute([$toUser, $payment['user_id']]);
 
             $db->prepare("
-                INSERT INTO coin_history (user_id, amount, source, created_at)
-                VALUES (?, ?, 'DEPOSIT_APPROVAL', $nowExpr)
+                INSERT INTO coin_history (user_id, amount, type, source, reference, created_at)
+                VALUES (?, ?, 'deposit', 'DEPOSIT_APPROVAL', 'Deposit approved', $nowExpr)
             ")->execute([$payment['user_id'], $toUser]);
         }
 

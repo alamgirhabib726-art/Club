@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 110" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Filter for soft ambient glow -->
+    <filter id="orbGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+
+    <!-- Orb Gradients -->
+    <radialGradient id="orbBgGrad" cx="40%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#fffbeb" />
+      <stop offset="18%" stop-color="#fde047" />
+      <stop offset="42%" stop-color="#ec4899" />
+      <stop offset="70%" stop-color="#7c3aed" />
+      <stop offset="90%" stop-color="#2e1065" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </radialGradient>
+
+    <!-- Metallic Gold Outer Ring -->
+    <linearGradient id="goldRim" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="30%" stop-color="#d97706" />
+      <stop offset="60%" stop-color="#fde047" />
+      <stop offset="85%" stop-color="#92400e" />
+      <stop offset="100%" stop-color="#fbbf24" />
+    </linearGradient>
+
+    <!-- Star Radiant Core -->
+    <linearGradient id="starGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="40%" stop-color="#fef08a" />
+      <stop offset="100%" stop-color="#eab308" />
+    </linearGradient>
+
+    <!-- Banner Base Gradient -->
+    <linearGradient id="bannerBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3b0764" />
+      <stop offset="60%" stop-color="#2e1065" />
+      <stop offset="100%" stop-color="#1e1b4b" />
+    </linearGradient>
+
+    <!-- Text Face Gradient -->
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="65%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#fef3c7" />
+    </linearGradient>
+  </defs>
+
+  <g filter="url(#dropShadow)">
+    <!-- Backplate Banner with Gold Trim -->
+    <path d="M 52 20 
+             L 380 20 
+             Q 405 20 405 52 
+             Q 405 84 380 84 
+             L 95 84 
+             Q 75 90 52 86 
+             Z" 
+          fill="url(#bannerBg)" 
+          stroke="url(#goldRim)" 
+          stroke-width="3" 
+          stroke-linejoin="round" />
+
+    <path d="M 68 25 L 376 25 Q 396 25 396 52 Q 396 79 376 79 L 98 79" 
+          fill="none" 
+          stroke="#4c1d95" 
+          stroke-width="1.5" 
+          opacity="0.8" />
+
+    <!-- UNMOOR Text Elements with Stylized Lettering -->
+    <g transform="translate(108, 64)" font-family="'Cinzel', 'Trajan Pro', 'Georgia', 'Times New Roman', serif" font-weight="900" font-size="44" letter-spacing="3">
+      <!-- Deep 3D Outline Layer -->
+      <text x="0" y="2" fill="#1e1b4b" stroke="#1e1b4b" stroke-width="7" stroke-linejoin="round">UNMOOR</text>
+      <!-- Gold Border Layer -->
+      <text x="0" y="1" fill="#78350f" stroke="url(#goldRim)" stroke-width="3" stroke-linejoin="round">UNMOOR</text>
+      <!-- Crisp White Face Layer -->
+      <text x="0" y="0" fill="url(#textGrad)">UNMOOR</text>
+    </g>
+
+    <!-- Left Glowing Orb Structure -->
+    <!-- Outer Glow Aura -->
+    <circle cx="56" cy="52" r="46" fill="#a855f7" opacity="0.2" filter="url(#orbGlow)" />
+
+    <!-- Outer Gold Frame Rings -->
+    <circle cx="56" cy="52" r="43" fill="none" stroke="url(#goldRim)" stroke-width="4.5" />
+    <circle cx="56" cy="52" r="40" fill="none" stroke="#581c87" stroke-width="1.5" />
+
+    <!-- Main Jewel Orb Surface -->
+    <circle cx="56" cy="52" r="39" fill="url(#orbBgGrad)" />
+
+    <!-- Glass Specular Highlight Arc -->
+    <path d="M 28 35 A 36 36 0 0 1 82 27 A 36 36 0 0 0 35 48 Z" fill="#ffffff" opacity="0.45" />
+
+    <!-- 8-Point Compass Starburst -->
+    <g transform="translate(56, 52)" filter="url(#dropShadow)">
+      <!-- Center Star Flare Glow -->
+      <circle cx="0" cy="0" r="14" fill="#ffffff" opacity="0.85" filter="url(#orbGlow)" />
+
+      <!-- Diagonal Rays (4 Secondary) -->
+      <polygon points="0,-18 3,-4 18,0 4,3 0,18 -3,4 -18,0 -4,-3" fill="url(#starGold)" opacity="0.95" />
+
+      <!-- Cardinal Rays (4 Primary Sharp Blades) -->
+      <!-- Vertical Blade (Top - Bottom) -->
+      <polygon points="0,-36 4,-6 0,-1 -4,-6" fill="url(#starGold)" stroke="#92400e" stroke-width="0.5" />
+      <polygon points="0,36 4,6 0,1 -4,6" fill="url(#starGold)" stroke="#92400e" stroke-width="0.5" />
+      <!-- Horizontal Blade (Left - Right) -->
+      <polygon points="-36,0 -6,-4 -1,0 -6,4" fill="url(#starGold)" stroke="#92400e" stroke-width="0.5" />
+      <polygon points="36,0 6,-4 1,0 6,4" fill="url(#starGold)" stroke="#92400e" stroke-width="0.5" />
+
+      <!-- Center Gem Pip -->
+      <circle cx="0" cy="0" r="4.5" fill="#ffffff" stroke="#f59e0b" stroke-width="1.5" />
+      <circle cx="0" cy="0" r="2" fill="#fffbeb" />
+    </g>
+  </g>
+</svg>

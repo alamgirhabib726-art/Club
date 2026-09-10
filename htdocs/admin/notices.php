@@ -17,14 +17,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (mb_strlen($message) > 2000) {
         $error = "Notice too long (max 2000 characters).";
     } else {
-        $stmt = $db->prepare("INSERT INTO notices (message, created_at) VALUES (?, datetime('now'))");
-        $stmt->execute([$message]);
+        $now = date('Y-m-d H:i:s');
+        $stmt = $db->prepare("INSERT INTO notices (message, created_at) VALUES (?, ?)");
+        $stmt->execute([$message, $now]);
         
-        // Log action
-        try {
-            $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-               ->execute([$admin['id'], 'Posted new notice: ' . mb_substr($message, 0, 40) . '...']);
-        } catch (Throwable $t) {}
+        log_admin_action($db, $admin['id'], 'Posted new notice: ' . mb_substr($message, 0, 40) . '...');
 
         header("Location: notices.php?msg=added");
         exit;
@@ -36,10 +33,7 @@ if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
     $db->prepare("DELETE FROM notices WHERE id = ?")->execute([$id]);
 
-    try {
-        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-           ->execute([$admin['id'], 'Deleted notice #' . $id]);
-    } catch (Throwable $t) {}
+    log_admin_action($db, $admin['id'], 'Deleted notice #' . $id);
 
     header("Location: notices.php?msg=deleted");
     exit;

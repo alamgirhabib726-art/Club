@@ -28,16 +28,17 @@ $updatedAt  = $row['updated_at'] ?? null;
 /* ================= TOGGLE ================= */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $new = $maintenance ? 0 : 1;
+    $now = date('Y-m-d H:i:s');
 
     $db->prepare("
         UPDATE settings
-        SET maintenance = ?, updated_at = datetime('now')
+        SET maintenance = ?, updated_at = ?
         WHERE id = 1
-    ")->execute([$new]);
+    ")->execute([$new, $now]);
 
     try {
-        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-           ->execute([$admin['id'], ($new ? "Enabled global maintenance mode" : "Disabled maintenance mode (Live) ")]);
+        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, ?)")
+           ->execute([$admin['id'], ($new ? "Enabled global maintenance mode" : "Disabled maintenance mode (Live) "), $now]);
     } catch (Throwable $t) {}
 
     header("Location: maintenance.php");

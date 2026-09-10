@@ -18,7 +18,7 @@ $uid = (int)$_SESSION['user_id'];
 /* ================= FETCH LEDGER ================= */
 $stmt = $db->prepare("
     SELECT amount, type,
-           source_name, source_number,
+           source, source_name, source_number,
            reference, created_at
     FROM coin_history
     WHERE user_id = ?
@@ -59,6 +59,8 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <?php if (!empty($r['source_number'])): ?>
                                         <span style="font-size: 11.5px; color: var(--text-muted); font-weight: normal;">(<?= htmlspecialchars($r['source_number']) ?>)</span>
                                     <?php endif; ?>
+                                <?php elseif (!empty($r['source'])): ?>
+                                    <?= htmlspecialchars($r['source']) ?>
                                 <?php elseif (!empty($r['reference'])): ?>
                                     <?= htmlspecialchars($r['reference']) ?>
                                 <?php else: ?>

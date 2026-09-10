@@ -22,10 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         WHERE id = ?
     ")->execute([$price, $discount, $delivery_time, $active, $id]);
 
-    try {
-        $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-           ->execute([$admin['id'], "Updated product #$id settings"]);
-    } catch (Throwable $t) {}
+    log_admin_action($db, $admin['id'], "Updated product #$id settings");
 
     $msg = "Product updated successfully.";
 }

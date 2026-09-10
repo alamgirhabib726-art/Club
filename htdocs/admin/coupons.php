@@ -41,15 +41,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $code = generateUniqueCoupon($db, $type);
 
+            $now = date('Y-m-d H:i:s');
             $db->prepare("
                 INSERT INTO coupons (code, amount, type, status, created_at)
-                VALUES (?, ?, ?, 'active', datetime('now'))
-            ")->execute([$code, $amount, $type]);
+                VALUES (?, ?, ?, 'active', ?)
+            ")->execute([$code, $amount, $type, $now]);
 
-            try {
-                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-                   ->execute([$admin['id'], "Created coupon $code for ৳$amount"]);
-            } catch (Throwable $t) {}
+            log_admin_action($db, $admin['id'], "Created coupon $code for ৳$amount");
 
             $_SESSION['coupon_success'] = "Generated coupon code: $code";
             header("Location: coupons.php");

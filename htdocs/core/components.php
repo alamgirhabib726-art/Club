@@ -154,3 +154,75 @@ if (!function_exists('render_support_widget')) {
         <?php
     }
 }
+
+if (!function_exists('render_unmoor_logo_svg')) {
+    function render_unmoor_logo_svg($maxWidth = '260px', $height = 'auto') {
+        ?>
+        <div class="unmoor-code-logo" style="display: inline-flex; align-items: center; justify-content: center; width: 100%; max-width: <?= htmlspecialchars($maxWidth) ?>; height: <?= htmlspecialchars($height) ?>; margin: 0 auto;">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 110" style="width: 100%; height: 100%; display: block;" fill="none">
+              <defs>
+                <filter id="orbGlowInline" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="4" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+                <radialGradient id="orbBgGradInline" cx="40%" cy="45%" r="60%">
+                  <stop offset="0%" stop-color="#fffbeb" />
+                  <stop offset="18%" stop-color="#fde047" />
+                  <stop offset="42%" stop-color="#ec4899" />
+                  <stop offset="70%" stop-color="#7c3aed" />
+                  <stop offset="90%" stop-color="#2e1065" />
+                  <stop offset="100%" stop-color="#0f172a" />
+                </radialGradient>
+                <linearGradient id="goldRimInline" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#fef08a" />
+                  <stop offset="30%" stop-color="#d97706" />
+                  <stop offset="60%" stop-color="#fde047" />
+                  <stop offset="85%" stop-color="#92400e" />
+                  <stop offset="100%" stop-color="#fbbf24" />
+                </linearGradient>
+                <linearGradient id="starGoldInline" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#ffffff" />
+                  <stop offset="40%" stop-color="#fef08a" />
+                  <stop offset="100%" stop-color="#eab308" />
+                </linearGradient>
+                <linearGradient id="bannerBgInline" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#3b0764" />
+                  <stop offset="60%" stop-color="#2e1065" />
+                  <stop offset="100%" stop-color="#1e1b4b" />
+                </linearGradient>
+                <linearGradient id="textGradInline" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#ffffff" />
+                  <stop offset="65%" stop-color="#ffffff" />
+                  <stop offset="100%" stop-color="#fef3c7" />
+                </linearGradient>
+              </defs>
+              <g>
+                <path d="M 52 20 L 380 20 Q 405 20 405 52 Q 405 84 380 84 L 95 84 Q 75 90 52 86 Z" fill="url(#bannerBgInline)" stroke="url(#goldRimInline)" stroke-width="3" stroke-linejoin="round" />
+                <path d="M 68 25 L 376 25 Q 396 25 396 52 Q 396 79 376 79 L 98 79" fill="none" stroke="#4c1d95" stroke-width="1.5" opacity="0.8" />
+                <g transform="translate(108, 64)" font-family="'Cinzel', 'Georgia', serif" font-weight="900" font-size="44" letter-spacing="3">
+                  <text x="0" y="2" fill="#1e1b4b" stroke="#1e1b4b" stroke-width="7" stroke-linejoin="round">UNMOOR</text>
+                  <text x="0" y="1" fill="#78350f" stroke="url(#goldRimInline)" stroke-width="3" stroke-linejoin="round">UNMOOR</text>
+                  <text x="0" y="0" fill="url(#textGradInline)">UNMOOR</text>
+                </g>
+                <circle cx="56" cy="52" r="46" fill="#a855f7" opacity="0.25" filter="url(#orbGlowInline)" />
+                <circle cx="56" cy="52" r="43" fill="none" stroke="url(#goldRimInline)" stroke-width="4.5" />
+                <circle cx="56" cy="52" r="40" fill="none" stroke="#581c87" stroke-width="1.5" />
+                <circle cx="56" cy="52" r="39" fill="url(#orbBgGradInline)" />
+                <path d="M 28 35 A 36 36 0 0 1 82 27 A 36 36 0 0 0 35 48 Z" fill="#ffffff" opacity="0.45" />
+                <g transform="translate(56, 52)">
+                  <circle cx="0" cy="0" r="14" fill="#ffffff" opacity="0.85" filter="url(#orbGlowInline)" />
+                  <polygon points="0,-18 3,-4 18,0 4,3 0,18 -3,4 -18,0 -4,-3" fill="url(#starGoldInline)" opacity="0.95" />
+                  <polygon points="0,-36 4,-6 0,-1 -4,-6" fill="url(#starGoldInline)" stroke="#92400e" stroke-width="0.5" />
+                  <polygon points="0,36 4,6 0,1 -4,6" fill="url(#starGoldInline)" stroke="#92400e" stroke-width="0.5" />
+                  <polygon points="-36,0 -6,-4 -1,0 -6,4" fill="url(#starGoldInline)" stroke="#92400e" stroke-width="0.5" />
+                  <polygon points="36,0 6,-4 1,0 6,4" fill="url(#starGoldInline)" stroke="#92400e" stroke-width="0.5" />
+                  <circle cx="0" cy="0" r="4.5" fill="#ffffff" stroke="#f59e0b" stroke-width="1.5" />
+                  <circle cx="0" cy="0" r="2" fill="#fffbeb" />
+                </g>
+              </g>
+            </svg>
+        </div>
+        <?php
+    }
+}
+

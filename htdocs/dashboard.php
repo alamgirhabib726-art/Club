@@ -6,6 +6,7 @@
 session_start();
 require_once __DIR__ . "/db.php";
 require_once __DIR__ . "/core/components.php";
+require_once __DIR__ . "/core/firebase.php";
 
 /* ================= LOGIN & AUTH ================= */
 if (!isset($_SESSION['user_id'])) {
@@ -350,5 +351,6 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
     <!-- GLOBAL BOTTOM NAVIGATION -->
     <?php require_once __DIR__ . "/bottom_nav.php"; ?>
 
+    <?php render_firebase_sdk_scripts(); ?>
 </body>
 </html>

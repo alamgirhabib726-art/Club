@@ -22,10 +22,7 @@ if (isset($_GET['action'], $_GET['id'])) {
                 WHERE id = ? AND role NOT IN ('admin','system')
             ")->execute([$id]);
 
-            try {
-                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-                   ->execute([$admin['id'], "Banned User #$id"]);
-            } catch (Throwable $t) {}
+            log_admin_action($db, $admin['id'], "Banned User #$id");
 
             $msg = "User #$id has been banned.";
         }
@@ -37,10 +34,7 @@ if (isset($_GET['action'], $_GET['id'])) {
                 WHERE id = ? AND role NOT IN ('admin','system')
             ")->execute([$id]);
 
-            try {
-                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-                   ->execute([$admin['id'], "Unbanned User #$id"]);
-            } catch (Throwable $t) {}
+            log_admin_action($db, $admin['id'], "Unbanned User #$id");
 
             $msg = "User #$id has been activated.";
         }
@@ -52,10 +46,7 @@ if (isset($_GET['action'], $_GET['id'])) {
                 WHERE id = ?
             ")->execute([$id]);
 
-            try {
-                $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-                   ->execute([$admin['id'], "Approved User Application #$id"]);
-            } catch (Throwable $t) {}
+            log_admin_action($db, $admin['id'], "Approved User Application #$id");
 
             $msg = "User #$id application approved.";
         }

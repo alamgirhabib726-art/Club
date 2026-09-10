@@ -11,10 +11,11 @@ $liq = $db->query("
 ")->fetch(PDO::FETCH_ASSOC);
 
 if (!$liq) {
-    $db->exec("
+    $now = date('Y-m-d H:i:s');
+    $db->prepare("
         INSERT INTO users (name, phone, role, coins, status, created_at)
-        VALUES ('Liquidity Pool', '00000000001', 'liquidity', 0, 'active', datetime('now'))
-    ");
+        VALUES ('Liquidity Pool', '00000000001', 'liquidity', 0, 'active', ?)
+    ")->execute([$now]);
     $liq = $db->query("
         SELECT id, coins FROM users WHERE role='liquidity' LIMIT 1
     ")->fetch(PDO::FETCH_ASSOC);
@@ -30,10 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->prepare("UPDATE users SET coins = coins + ? WHERE id=?")
            ->execute([$amount, $liq['id']]);
         
-        try {
-            $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-               ->execute([$admin['id'], "Injected 🪙 $amount into liquidity pool"]);
-        } catch (Throwable $t) {}
+        log_admin_action($db, $admin['id'], "Injected 🪙 $amount into liquidity pool");
 
         $msg = "Liquidity added successfully: +🪙 $amount";
         $liq['coins'] += $amount;
@@ -42,10 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->prepare("UPDATE users SET coins = coins - ? WHERE id=?")
            ->execute([$amount, $liq['id']]);
 
-        try {
-            $db->prepare("INSERT INTO logs (user_id, action, created_at) VALUES (?, ?, datetime('now'))")
-               ->execute([$admin['id'], "Withdrew 🪙 $amount from liquidity pool"]);
-        } catch (Throwable $t) {}
+        log_admin_action($db, $admin['id'], "Withdrew 🪙 $amount from liquidity pool");
 
         $msg = "Liquidity withdrawn successfully: -🪙 $amount";
         $liq['coins'] -= $amount;

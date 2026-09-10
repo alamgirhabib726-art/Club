@@ -79,16 +79,17 @@ a {
 .page-wrap {
     max-width: 480px;
     margin: 0 auto;
-    padding: 16px;
-    padding-bottom: 120px; /* Safe space for fixed bottom nav */
+    padding: 16px 16px calc(116px + env(safe-area-inset-bottom, 0px));
     min-height: 100vh;
+    box-sizing: border-box;
 }
 
 .page-wrap-wide {
     max-width: 720px;
     margin: 0 auto;
-    padding: 20px 16px;
-    padding-bottom: 120px;
+    padding: 20px 16px calc(116px + env(safe-area-inset-bottom, 0px));
+    min-height: 100vh;
+    box-sizing: border-box;
 }
 
 /* User Header / Topbar */
@@ -650,15 +651,15 @@ a {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 84px;
-    background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.98));
+    height: calc(84px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(2, 6, 23, 0.99));
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    padding-bottom: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
     z-index: 999;
 }
 
@@ -808,7 +809,7 @@ a {
 /* Media Queries */
 @media (max-width: 400px) {
     .page-wrap {
-        padding: 12px;
+        padding: 12px 12px calc(116px + env(safe-area-inset-bottom, 0px));
     }
     .action-grid {
         grid-template-columns: repeat(3, 1fr);
