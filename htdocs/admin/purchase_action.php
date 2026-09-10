@@ -1,35 +1,34 @@
 <?php
+/**
+ * UNMOOR CLUB - ADMIN PURCHASE ACTION HANDLER (LOCKED BALANCES)
+ */
+
 session_start();
 require_once __DIR__ . "/../db.php";
 
-/* =========================
-   ADMIN / SUB-ADMIN CHECK
-========================= */
-$stmt = $db->prepare("SELECT role FROM users WHERE id=?");
-$stmt->execute([$_SESSION['user_id'] ?? 0]);
+/* ADMIN / SUB-ADMIN CHECK */
+$adminId = (int)($_SESSION['user_id'] ?? 0);
+$stmt = $db->prepare("SELECT role FROM users WHERE id = ?");
+$stmt->execute([$adminId]);
 $role = $stmt->fetchColumn();
 
-if (!in_array($role, ['admin','sub_admin'])) {
+if (!in_array($role, ['admin', 'sub_admin'])) {
     die("ACCESS DENIED");
 }
 
-/* =========================
-   INPUT VALIDATION
-========================= */
+/* INPUT VALIDATION */
 $id = (int)($_GET['id'] ?? 0);
-$action = $_GET['action'] ?? '';
+$action = trim($_GET['action'] ?? '');
 
-if (!$id || !in_array($action, ['approve','reject'])) {
+if (!$id || !in_array($action, ['approve', 'reject'], true)) {
     die("INVALID REQUEST");
 }
 
-/* =========================
-   FETCH ORDER
-========================= */
+/* FETCH ORDER */
 $stmt = $db->prepare("
     SELECT id, user_id, amount, status
     FROM payments
-    WHERE id=? AND type='purchase'
+    WHERE id = ? AND type = 'purchase'
     LIMIT 1
 ");
 $stmt->execute([$id]);
@@ -39,67 +38,21 @@ if (!$order) {
     die("ORDER NOT FOUND");
 }
 
-/* ALREADY HANDLED */
 if ($order['status'] !== 'pending') {
     header("Location: purchase_orders.php");
     exit;
 }
 
-/* =========================
-   PROCESS ACTION
-========================= */
-$db->beginTransaction();
-
-try {
-    $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
-    $nowExpr = ($driver === 'sqlite') ? "datetime('now')" : "NOW()";
-
-    /* APPROVE */
-    if ($action === 'approve') {
-        $db->prepare("
-            UPDATE payments
-            SET status='approved'
-            WHERE id=?
-        ")->execute([$id]);
-
-        $db->prepare("
-            INSERT INTO coin_history (user_id, amount, type, source, created_at)
-            VALUES (?, 0, 'purchase', 'Order approved', $nowExpr)
-        ")->execute([$order['user_id']]);
+if ($action === 'approve') {
+    $res = approve_locked_order($db, $id, $adminId);
+    if (!$res['success']) {
+        die("Approval failed: " . htmlspecialchars($res['error']));
     }
-
-    /* REJECT */
-    if ($action === 'reject') {
-        // refund coins
-        $db->prepare("
-            UPDATE users
-            SET coins = coins + ?
-            WHERE id=?
-        ")->execute([
-            $order['amount'],
-            $order['user_id']
-        ]);
-
-        $db->prepare("
-            UPDATE payments
-            SET status='rejected'
-            WHERE id=?
-        ")->execute([$id]);
-
-        $db->prepare("
-            INSERT INTO coin_history (user_id, amount, type, source, created_at)
-            VALUES (?, ?, 'refund', 'Purchase rejected', $nowExpr)
-        ")->execute([
-            $order['user_id'],
-            $order['amount']
-        ]);
+} elseif ($action === 'reject') {
+    $res = reject_locked_order($db, $id, $adminId, 'Admin rejected order');
+    if (!$res['success']) {
+        die("Rejection failed: " . htmlspecialchars($res['error']));
     }
-
-    $db->commit();
-
-} catch (Exception $e) {
-    $db->rollBack();
-    die("FAILED: " . $e->getMessage());
 }
 
 header("Location: purchase_orders.php");

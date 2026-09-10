@@ -13,9 +13,11 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-/* ================= FETCH USER ================= */
+/* ================= FETCH USER & BALANCES ================= */
+$balances = get_user_balances($db, (int)$_SESSION['user_id']);
+
 $stmt = $db->prepare("
-    SELECT id, name, phone, status, apply_status, coins, balance,
+    SELECT id, name, phone, status, apply_status, coins, locked_coins, balance,
            coin_cycle_start, last_coin_cut, role, photo
     FROM users
     WHERE id = ?
@@ -88,10 +90,10 @@ if ($user['role'] === 'user' && !empty($user['coin_cycle_start'])) {
 
                     $db->prepare("
                         INSERT INTO coin_history
-                            (user_id, amount, type,
+                            (user_id, amount, type, reference,
                              source_user_id, source_name, source_number)
                         VALUES
-                            (?, ?, 'credit', ?, ?, ?)
+                            (?, ?, 'credit', 'User Daily Coin Cut', ?, ?, ?)
                     ")->execute([
                         $systemId,
                         $realCut,
@@ -114,10 +116,10 @@ if ($user['role'] === 'user' && !empty($user['coin_cycle_start'])) {
 
             $db->prepare("
                 INSERT INTO coin_history
-                    (user_id, amount, type,
+                    (user_id, amount, type, reference,
                      source_user_id, source_name, source_number)
                 VALUES
-                    (?, ?, 'debit', ?, ?, ?)
+                    (?, ?, 'debit', 'Daily Coin Cycle Fee', ?, ?, ?)
             ")->execute([
                 $user['id'],
                 -$pendingCuts,
@@ -128,6 +130,8 @@ if ($user['role'] === 'user' && !empty($user['coin_cycle_start'])) {
 
             $db->commit();
             $user['coins'] -= $pendingCuts;
+            $balances['coins'] -= $pendingCuts;
+            $balances['total_coins'] -= $pendingCuts;
 
         } catch (Exception $e) {
             $db->rollBack();
@@ -163,7 +167,7 @@ $clubFund = (float)$db->query("
 $notices = [];
 try {
     $stmt = $db->prepare("
-        SELECT message, created_at
+        SELECT text AS message, created_at
         FROM notices
         ORDER BY id DESC
         LIMIT 5
@@ -213,7 +217,7 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
 
                 <div style="text-align: right;">
                     <div style="display: inline-block; padding: 6px 12px; border-radius: 999px; font-weight: 900; font-size: 14.5px; background: <?= $isDebt ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)' ?>; color: <?= $isDebt ? 'var(--accent-red)' : 'var(--accent-green)' ?>; border: 1px solid <?= $isDebt ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)' ?>;">
-                        🪙 <?= number_format($user['coins'], 2) ?>
+                        🪙 <?= number_format($balances['coins'], 2) ?>
                     </div>
                     <div style="font-size: 10.5px; color: var(--text-dim); margin-top: 4px;">
                         Cycle: <?= $hours ?>h <?= $minutes ?>m left
@@ -222,35 +226,38 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
             </div>
         </div>
 
+        <!-- BALANCE OVERVIEW CARD (AVAILABLE, LOCKED, TOTAL) -->
+        <?= render_balance_card($balances, false) ?>
+
         <!-- DEBT WARNING BANNER IF NEGATIVE COINS -->
         <?php if ($isDebt): ?>
-            <div class="alert alert-danger" style="display: flex; align-items: center; justify-content: space-between;">
+            <div class="alert alert-danger" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
                 <div>
                     <strong>⚠️ Negative Balance Warning</strong>
                     <div style="font-size: 12px; margin-top: 2px;">Your features are temporarily locked. Please deposit to restore access.</div>
                 </div>
-                <a href="deposit.php" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;">
+                <a href="deposit.php" class="btn btn-sm btn-gold" style="white-space: nowrap; padding: 6px 12px;">
                     Deposit
                 </a>
             </div>
         <?php endif; ?>
 
         <!-- TOTAL CLUB FUND HIGHLIGHT CARD -->
-        <div class="card" style="background: linear-gradient(135deg, #f472b6, #ec4899); color: #3b0a24; text-align: center; padding: 20px 14px; box-shadow: 0 14px 34px rgba(236, 72, 153, 0.35); border: none;">
-            <div style="font-size: 12.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9;">🏦 Total Club Reserve Fund</div>
-            <div style="font-size: 28px; font-weight: 900; margin-top: 4px; letter-spacing: 0.5px;">
+        <div class="card" style="background: linear-gradient(135deg, #f472b6, #ec4899); color: #3b0a24; text-align: center; padding: 18px 14px; box-shadow: 0 10px 25px rgba(236, 72, 153, 0.25); border: none; margin-bottom: 14px;">
+            <div style="font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9;">🏦 Total Club Reserve Fund</div>
+            <div style="font-size: 26px; font-weight: 900; margin-top: 2px; letter-spacing: 0.5px;">
                 🪙 <?= number_format($clubFund, 2) ?>
             </div>
         </div>
 
         <!-- PRIMARY ACTION HUBS -->
         <div class="card">
-            <h3 style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
-                🏦 Account & Financial Hub
+            <h3 style="font-size: 13.5px; font-weight: 800; color: #ffffff; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+                🏦 Financial Services
             </h3>
             
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                <a href="deposit.php" style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 6px; text-align: center; text-decoration: none; color: #ffffff; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: transform 0.15s;">
+                <a href="deposit.php" style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 6px; text-align: center; text-decoration: none; color: #ffffff; display: flex; flex-direction: column; align-items: center; gap: 6px;">
                     <span style="font-size: 22px;">💳</span>
                     <span style="font-size: 13px; font-weight: 800;">Deposit</span>
                 </a>
@@ -269,7 +276,7 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
 
         <!-- CLUB ACTIVITIES & GAMING -->
         <div class="card">
-            <h3 style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
+            <h3 style="font-size: 13.5px; font-weight: 800; color: #ffffff; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">
                 🎮 Club Activities & Events
             </h3>
 
@@ -284,19 +291,19 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
                     <span style="font-size: 13px; font-weight: 800;">Events</span>
                 </a>
 
-                <a href="trade/chart.php" style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 6px; text-align: center; text-decoration: none; color: #ffffff; display: flex; flex-direction: column; align-items: center; gap: 6px; <?= $canUseFeatures ? '' : 'opacity: 0.4; pointer-events: none;' ?>">
-                    <span style="font-size: 22px;">📈</span>
-                    <span style="font-size: 13px; font-weight: 800;">Trade</span>
+                <a href="earn.php" style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 6px; text-align: center; text-decoration: none; color: #ffffff; display: flex; flex-direction: column; align-items: center; gap: 6px; <?= $canUseFeatures ? '' : 'opacity: 0.4; pointer-events: none;' ?>">
+                    <span style="font-size: 22px;">⚡</span>
+                    <span style="font-size: 13px; font-weight: 800;">Earn</span>
                 </a>
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <a href="purchase.php" class="btn btn-gold btn-block" style="text-align: center;">
+                <a href="purchase.php" class="btn btn-gold btn-block" style="text-align: center; text-decoration: none; padding: 12px;">
                     🛒 Club Store
                 </a>
                 
-                <a href="donation.php" class="btn btn-primary btn-block" style="text-align: center; <?= $canUseFeatures ? '' : 'opacity: 0.4; pointer-events: none;' ?>">
-                    💚 Donate & Support
+                <a href="donation.php" class="btn btn-secondary btn-block" style="text-align: center; text-decoration: none; padding: 12px; <?= $canUseFeatures ? '' : 'opacity: 0.4; pointer-events: none;' ?>">
+                    💚 Donate
                 </a>
             </div>
         </div>
@@ -304,7 +311,7 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
         <!-- NOTICE BOARD -->
         <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h3 style="font-size: 14px; font-weight: 800; color: #ffffff; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                <h3 style="font-size: 13.5px; font-weight: 800; color: #ffffff; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">
                     📢 Notice Board
                 </h3>
                 <a href="notices.php" style="font-size: 12px; color: var(--accent-gold); text-decoration: none; font-weight: 700;">View All ›</a>
@@ -343,6 +350,5 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
     <!-- GLOBAL BOTTOM NAVIGATION -->
     <?php require_once __DIR__ . "/bottom_nav.php"; ?>
 
-    <script src="assets/app.js"></script>
 </body>
 </html>

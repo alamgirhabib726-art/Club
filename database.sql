@@ -1001,6 +1001,7 @@ CREATE TABLE `users` (
   `status` varchar(32) NOT NULL DEFAULT 'active',
   `apply_status` varchar(32) NOT NULL DEFAULT 'approved',
   `coins` decimal(18,4) NOT NULL DEFAULT 0.0000,
+  `locked_coins` decimal(18,4) NOT NULL DEFAULT 0.0000,
   `balance` decimal(18,4) NOT NULL DEFAULT 0.0000,
   `purchase_balance` decimal(18,4) NOT NULL DEFAULT 0.0000,
   `photo` varchar(255) DEFAULT NULL,

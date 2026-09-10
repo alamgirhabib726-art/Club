@@ -53,11 +53,9 @@ function bootstrapDatabaseIfEmpty($pdo) {
             if (file_exists($sqlFile)) {
                 $sqlContent = file_get_contents($sqlFile);
                 if ($driver === 'mysql') {
-                    // Try executing raw dump directly with multi statements enabled
                     try {
                         $pdo->exec($sqlContent);
                     } catch (Throwable $ex) {
-                        // Fallback to statement-by-statement execution
                         $queries = preg_split('/;\s*[\r\n]+/', $sqlContent);
                         foreach ($queries as $q) {
                             $q = trim($q);
@@ -71,10 +69,267 @@ function bootstrapDatabaseIfEmpty($pdo) {
                 }
             }
         }
+
+        // Schema integrity checks & migrations
+        try {
+            if ($driver === 'mysql') {
+                $pdo->exec("ALTER TABLE users ADD COLUMN locked_coins decimal(18,4) NOT NULL DEFAULT 0.0000");
+            } else {
+                $pdo->exec("ALTER TABLE users ADD COLUMN locked_coins REAL DEFAULT 0");
+            }
+        } catch (Throwable $t) {
+            // Column already exists
+        }
+
+        try {
+            if ($driver === 'sqlite') {
+                $pdo->exec("CREATE TABLE IF NOT EXISTS headtail_bets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    choice TEXT NOT NULL,
+                    result TEXT NOT NULL,
+                    bet_amount REAL NOT NULL,
+                    profit REAL NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )");
+                $pdo->exec("CREATE TABLE IF NOT EXISTS system_ledger (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    source TEXT,
+                    reference TEXT,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )");
+            }
+        } catch (Throwable $t) {}
+
     } catch (Throwable $t) {
         // Continue if check fails
     }
 }
+
+/* ==================================================
+   COIN BALANCE & ORDER TRANSACTION HELPERS
+================================================== */
+
+function get_user_balances(PDO $pdo, int $userId): array {
+    $stmt = $pdo->prepare("SELECT coins, COALESCE(locked_coins, 0) AS locked_coins, role, status, apply_status, name, phone FROM users WHERE id = ? LIMIT 1");
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return ['coins' => 0.0, 'locked_coins' => 0.0, 'total_coins' => 0.0, 'name' => '', 'phone' => ''];
+    }
+    $avail = (float)$row['coins'];
+    $locked = (float)$row['locked_coins'];
+    return [
+        'coins' => $avail,
+        'locked_coins' => $locked,
+        'total_coins' => $avail + $locked,
+        'name' => $row['name'] ?? '',
+        'phone' => $row['phone'] ?? '',
+        'role' => $row['role'] ?? 'user',
+        'status' => $row['status'] ?? 'active',
+        'apply_status' => $row['apply_status'] ?? 'approved'
+    ];
+}
+
+function lock_user_order(PDO $pdo, int $userId, float $amount, int $productId, string $source = ''): array {
+    if ($amount <= 0) {
+        return ['success' => false, 'error' => 'Invalid order amount.'];
+    }
+
+    $pdo->beginTransaction();
+    try {
+        // Check and lock user balance
+        $stmt = $pdo->prepare("SELECT coins, locked_coins FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $u = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$u) {
+            $pdo->rollBack();
+            return ['success' => false, 'error' => 'User account not found.'];
+        }
+
+        $avail = (float)$u['coins'];
+        if ($avail < $amount) {
+            $pdo->rollBack();
+            return ['success' => false, 'error' => 'Insufficient available balance. You have 🪙 ' . number_format($avail, 2) . ' available.'];
+        }
+
+        // Atomically move from available to locked
+        $upd = $pdo->prepare("UPDATE users SET coins = coins - ?, locked_coins = COALESCE(locked_coins, 0) + ? WHERE id = ? AND coins >= ?");
+        $upd->execute([$amount, $amount, $userId, $amount]);
+
+        if ($upd->rowCount() === 0) {
+            $pdo->rollBack();
+            return ['success' => false, 'error' => 'Balance deduction race condition detected. Please retry.'];
+        }
+
+        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $nowExpr = ($driver === 'sqlite') ? "datetime('now')" : "NOW()";
+
+        // Insert pending payment/order
+        $ins = $pdo->prepare("
+            INSERT INTO payments (user_id, type, amount, status, source, product_id, created_at)
+            VALUES (?, 'purchase', ?, 'pending', ?, ?, $nowExpr)
+        ");
+        $ins->execute([$userId, $amount, $source, $productId]);
+        $orderId = (int)$pdo->lastInsertId();
+
+        // Write ledger records
+        $pdo->prepare("
+            INSERT INTO coin_history (user_id, amount, type, reference, created_at)
+            VALUES (?, 0, 'order_locked', ?, $nowExpr)
+        ")->execute([$userId, "Coins locked for Order #$orderId (🪙 " . number_format($amount, 2) . ")"]);
+
+        $pdo->prepare("
+            INSERT INTO system_ledger (type, amount, source, reference, created_at)
+            VALUES ('order_locked', ?, 'STORE', ?, $nowExpr)
+        ")->execute([$amount, "Order #$orderId placed by User #$userId"]);
+
+        $pdo->commit();
+
+        $newBal = get_user_balances($pdo, $userId);
+        return [
+            'success' => true,
+            'order_id' => $orderId,
+            'locked_amount' => $amount,
+            'balances' => $newBal
+        ];
+
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        return ['success' => false, 'error' => 'Order placement failed: ' . $e->getMessage()];
+    }
+}
+
+function approve_locked_order(PDO $pdo, int $orderId, ?int $adminId = null): array {
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("SELECT id, user_id, amount, status, type FROM payments WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            $pdo->rollBack();
+            return ['success' => false, 'error' => 'Order not found.'];
+        }
+
+        if ($order['status'] !== 'pending') {
+            $pdo->rollBack();
+            return ['success' => false, 'error' => 'Order is not pending (status: ' . $order['status'] . ').'];
+        }
+
+        $userId = (int)$order['user_id'];
+        $amount = (float)$order['amount'];
+
+        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $nowExpr = ($driver === 'sqlite') ? "datetime('now')" : "NOW()";
+
+        // Idempotently update status
+        $updOrder = $pdo->prepare("UPDATE payments SET status = 'approved' WHERE id = ? AND status = 'pending'");
+        $updOrder->execute([$orderId]);
+
+        if ($updOrder->rowCount() === 0) {
+            $pdo->rollBack();
+            return ['success' => false, 'error' => 'Order already processed by another request.'];
+        }
+
+        // Deduct permanently from locked_coins
+        $pdo->prepare("
+            UPDATE users
+            SET locked_coins = CASE WHEN locked_coins >= ? THEN locked_coins - ? ELSE 0 END
+            WHERE id = ?
+        ")->execute([$amount, $amount, $userId]);
+
+        // Insert coin history
+        $pdo->prepare("
+            INSERT INTO coin_history (user_id, amount, type, reference, created_at)
+            VALUES (?, ?, 'purchase_approved', ?, $nowExpr)
+        ")->execute([$userId, -$amount, "Order #$orderId approved and completed"]);
+
+        // Insert system ledger
+        $pdo->prepare("
+            INSERT INTO system_ledger (type, amount, source, reference, created_at)
+            VALUES ('purchase_approved', ?, 'STORE', ?, $nowExpr)
+        ")->execute([$amount, "Order #$orderId approved for User #$userId"]);
+
+        $pdo->commit();
+        return ['success' => true, 'order_id' => $orderId, 'user_id' => $userId];
+
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        return ['success' => false, 'error' => 'Approval failed: ' . $e->getMessage()];
+    }
+}
+
+function reject_locked_order(PDO $pdo, int $orderId, ?int $adminId = null): array {
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("SELECT id, user_id, amount, status, type FROM payments WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            $pdo->rollBack();
+            return ['success' => false, 'error' => 'Order not found.'];
+        }
+
+        if ($order['status'] !== 'pending') {
+            $pdo->rollBack();
+            return ['success' => false, 'error' => 'Order is not pending (status: ' . $order['status'] . ').'];
+        }
+
+        $userId = (int)$order['user_id'];
+        $amount = (float)$order['amount'];
+
+        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $nowExpr = ($driver === 'sqlite') ? "datetime('now')" : "NOW()";
+
+        // Idempotently update status
+        $updOrder = $pdo->prepare("UPDATE payments SET status = 'rejected' WHERE id = ? AND status = 'pending'");
+        $updOrder->execute([$orderId]);
+
+        if ($updOrder->rowCount() === 0) {
+            $pdo->rollBack();
+            return ['success' => false, 'error' => 'Order already processed by another request.'];
+        }
+
+        // Release locked coins back to available coins
+        $pdo->prepare("
+            UPDATE users
+            SET coins = coins + ?,
+                locked_coins = CASE WHEN locked_coins >= ? THEN locked_coins - ? ELSE 0 END
+            WHERE id = ?
+        ")->execute([$amount, $amount, $amount, $userId]);
+
+        // Insert coin history
+        $pdo->prepare("
+            INSERT INTO coin_history (user_id, amount, type, reference, created_at)
+            VALUES (?, ?, 'purchase_rejected', ?, $nowExpr)
+        ")->execute([$userId, $amount, "Order #$orderId rejected — 🪙 " . number_format($amount, 2) . " released back to Available Balance"]);
+
+        // Insert system ledger
+        $pdo->prepare("
+            INSERT INTO system_ledger (type, amount, source, reference, created_at)
+            VALUES ('purchase_rejected', ?, 'STORE', ?, $nowExpr)
+        ")->execute([-$amount, "Order #$orderId rejected, coins released for User #$userId"]);
+
+        $pdo->commit();
+        return ['success' => true, 'order_id' => $orderId, 'user_id' => $userId];
+
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        return ['success' => false, 'error' => 'Rejection failed: ' . $e->getMessage()];
+    }
+}
+
 
 $isExternalMySQL = !empty(getenv('MYSQL_URL')) || !empty(getenv('DATABASE_URL')) || !empty(getenv('MYSQLHOST')) || !empty(getenv('DB_HOST'));
 $isProduction = $isExternalMySQL || (getenv('RAILWAY_ENVIRONMENT') !== false) || (getenv('APP_ENV') === 'production');

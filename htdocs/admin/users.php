@@ -69,7 +69,7 @@ $search = trim($_GET['q'] ?? '');
 $filterRole = trim($_GET['role'] ?? '');
 $filterStatus = trim($_GET['status'] ?? '');
 
-$sql = "SELECT id, name, phone, email, role, status, apply_status, coins, balance, coin_cycle_start, created_at FROM users WHERE 1=1";
+$sql = "SELECT id, name, phone, email, role, status, apply_status, coins, locked_coins, balance, coin_cycle_start, created_at FROM users WHERE 1=1";
 $params = [];
 
 if ($search !== '') {
@@ -180,7 +180,7 @@ require_once __DIR__ . "/layout_top.php";
                         <th>ID</th>
                         <th>Member Details</th>
                         <th>Role</th>
-                        <th>Coins (UC)</th>
+                        <th>Coin Balances (Avail / Locked)</th>
                         <th>Status</th>
                         <th>Joined Date</th>
                         <th style="text-align: right;">Actions</th>
@@ -188,6 +188,10 @@ require_once __DIR__ . "/layout_top.php";
                 </thead>
                 <tbody>
                     <?php foreach ($users as $u): ?>
+                        <?php 
+                            $avail = (float)$u['coins'];
+                            $locked = (float)($u['locked_coins'] ?? 0);
+                        ?>
                         <tr>
                             <td>
                                 <strong style="color: #ffffff;">#<?= $u['id'] ?></strong>
@@ -211,9 +215,16 @@ require_once __DIR__ . "/layout_top.php";
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <strong style="color: <?= $u['coins'] < 0 ? '#ef4444' : '#facc15' ?>; font-size: 14px;">
-                                    🪙 <?= number_format($u['coins'], 2) ?>
-                                </strong>
+                                <div style="display: flex; flex-direction: column; gap: 2px;">
+                                    <strong style="color: <?= $avail < 0 ? '#ef4444' : '#facc15' ?>; font-size: 14px;">
+                                        🪙 <?= number_format($avail, 2) ?>
+                                    </strong>
+                                    <?php if ($locked > 0): ?>
+                                        <span style="font-size: 11px; color: #fbbf24; font-weight: 700;">
+                                            🔒 Locked: <?= number_format($locked, 2) ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                             <td>
                                 <?php

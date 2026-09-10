@@ -14,10 +14,11 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $uid = (int)$_SESSION['user_id'];
+$balances = get_user_balances($db, $uid);
 
 /* FETCH USER DETAILS */
 $stmt = $db->prepare("
-    SELECT id, name, phone, email, photo, status, apply_status, role, coins, balance, created_at, coin_cycle_start
+    SELECT id, name, phone, email, photo, status, apply_status, role, coins, locked_coins, balance, created_at, coin_cycle_start
     FROM users
     WHERE id = ?
     LIMIT 1
@@ -51,7 +52,7 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
         <?= render_page_header('Member Profile', '/dashboard.php') ?>
 
         <!-- PROFILE HERO CARD -->
-        <div class="card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(15, 23, 42, 0.95)); border-color: rgba(245, 158, 11, 0.25); text-align: center; padding: 24px 16px;">
+        <div class="card" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(15, 23, 42, 0.95)); border-color: rgba(245, 158, 11, 0.25); text-align: center; padding: 24px 16px; margin-bottom: 14px;">
             <div style="position: relative; width: 84px; height: 84px; margin: 0 auto 14px;">
                 <img src="<?= $avatar ?>" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent-gold); box-shadow: var(--shadow-gold);" onerror="this.src='../assets/default-avatar.png'">
                 <a href="avatar.php" style="position: absolute; bottom: 0; right: 0; background: var(--accent-gold); color: #000; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; text-decoration: none; border: 2px solid #000;">
@@ -76,22 +77,8 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
             </div>
         </div>
 
-        <!-- BALANCE OVERVIEW PILLS -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
-            <div class="card" style="padding: 14px; text-align: center; margin-bottom: 0;">
-                <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Club Coins</div>
-                <div style="font-size: 18px; font-weight: 900; color: var(--accent-gold); margin-top: 4px;">
-                    🪙 <?= number_format($user['coins'], 2) ?>
-                </div>
-            </div>
-
-            <div class="card" style="padding: 14px; text-align: center; margin-bottom: 0;">
-                <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Fiat Balance</div>
-                <div style="font-size: 18px; font-weight: 900; color: #ffffff; margin-top: 4px;">
-                    ৳ <?= number_format($user['balance'] ?? 0, 2) ?>
-                </div>
-            </div>
-        </div>
+        <!-- BALANCE OVERVIEW CARD (AVAILABLE, LOCKED, TOTAL) -->
+        <?= render_balance_card($balances, false) ?>
 
         <!-- ACCOUNT NAVIGATION LIST -->
         <div class="card" style="padding: 6px 12px;">
@@ -172,7 +159,7 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
                         <strong style="color: var(--accent-gold); font-size: 15px;">💎 Upgrade to VIP Status</strong>
                         <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Unlock priority trading &amp; zero fees</div>
                     </div>
-                    <a href="../premium.php" class="btn btn-gold" style="padding: 8px 14px; font-size: 12px;">
+                    <a href="../payment.php" class="btn btn-gold" style="padding: 8px 14px; font-size: 12px; text-decoration: none;">
                         Upgrade
                     </a>
                 </div>
@@ -181,7 +168,7 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
 
         <!-- LOGOUT BUTTON -->
         <div style="margin-top: 14px; margin-bottom: 24px;">
-            <a href="../logout.php" class="btn btn-danger btn-block" style="text-align: center;" onclick="return confirm('Are you sure you want to log out of your Unmoor Club account?')">
+            <a href="../logout.php" class="btn btn-danger btn-block" style="text-align: center; text-decoration: none;" onclick="return confirm('Are you sure you want to log out of your Unmoor Club account?')">
                 🚪 Secure Log Out
             </a>
         </div>
@@ -194,6 +181,5 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
     <!-- GLOBAL BOTTOM NAVIGATION -->
     <?php require_once __DIR__ . "/../bottom_nav.php"; ?>
 
-    <script src="../assets/app.js"></script>
 </body>
 </html>
