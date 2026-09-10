@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . "/db.php";
-$pay = require "config/payment_numbers.php";
+$pay = require __DIR__ . "/config/payment_numbers.php";
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php"); exit;

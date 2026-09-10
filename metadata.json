@@ -1,6 +1,6 @@
 {
-  "name": "Private Club",
-  "description": "Private Club web application",
+  "name": "Unmoor Club",
+  "description": "Unmoor Club web platform migrated to Node.js & Express for Railway deployment with complete member, admin, payments, and trade functionality.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

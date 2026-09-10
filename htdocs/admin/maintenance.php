@@ -12,10 +12,14 @@ if ($role !== 'admin') {
 }
 
 /* ================= ENSURE SETTINGS ROW ================= */
-$db->exec("
-    INSERT IGNORE INTO settings (id, maintenance, updated_at)
-    VALUES (1, 0, CURRENT_TIMESTAMP)
-");
+try {
+    $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
+    if ($driver === 'sqlite') {
+        $db->exec("INSERT OR IGNORE INTO settings (id, maintenance, updated_at) VALUES (1, 0, datetime('now'))");
+    } else {
+        $db->exec("INSERT IGNORE INTO settings (id, maintenance, updated_at) VALUES (1, 0, CURRENT_TIMESTAMP)");
+    }
+} catch (Throwable $e) {}
 
 /* ================= FETCH STATUS ================= */
 $row = $db->query("

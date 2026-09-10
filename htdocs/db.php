@@ -86,25 +86,16 @@ try {
         $db = new PDO("mysql:host=127.0.0.1;dbname=if0_40736960_club;charset=utf8mb4", "root", "", $pdoOptions);
         bootstrapDatabaseIfEmpty($db);
     } catch (PDOException $e2) {
-        // Try starting local daemon
-        @shell_exec('mariadbd --user=mysql --datadir=/var/lib/mysql >/dev/null 2>&1 &');
-        @shell_exec('su -s /bin/bash mysql -c "mariadbd --datadir=/var/lib/mysql" >/dev/null 2>&1 &');
-        usleep(600000);
+        // SQLite Fallback so deployment never crashes on platforms without active MariaDB daemon
+        $sqlitePath = __DIR__ . '/../database.sqlite';
         try {
-            $db = new PDO("mysql:host=127.0.0.1;dbname=if0_40736960_club;charset=utf8mb4", "root", "", $pdoOptions);
-            bootstrapDatabaseIfEmpty($db);
-        } catch (PDOException $e3) {
-            // SQLite Fallback so deployment never crashes on platforms without active MariaDB daemon
-            $sqlitePath = __DIR__ . '/../database.sqlite';
-            try {
-                $db = new PDO("sqlite:" . $sqlitePath, null, null, [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-                ]);
-            } catch (PDOException $e4) {
-                http_response_code(500);
-                die("Database connection failed. Error: " . htmlspecialchars($e->getMessage()));
-            }
+            $db = new PDO("sqlite:" . $sqlitePath, null, null, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+        } catch (PDOException $e4) {
+            http_response_code(500);
+            die("Database connection failed. Error: " . htmlspecialchars($e->getMessage()));
         }
     }
 }
