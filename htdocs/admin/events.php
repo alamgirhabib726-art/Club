@@ -147,6 +147,8 @@ small{color:#9ca3af}
 <?php endif; ?>
 </div>
 
+<a href="dashboard.php" style="display:inline-block;margin-top:16px;color:#38bdf8;text-decoration:none;font-weight:500">← Back to Admin</a>
+
 </div>
 
 </body>

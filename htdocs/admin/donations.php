@@ -49,6 +49,7 @@ th{color:#9ca3af;font-size:13px}
 
 <h2>💚 Donation History</h2>
 
+<div class="table-responsive">
 <table>
 <tr>
     <th>User</th>
@@ -71,6 +72,9 @@ th{color:#9ca3af;font-size:13px}
 <?php endif; ?>
 
 </table>
+</div>
+
+<a href="dashboard.php" style="display:inline-block;margin-top:16px;color:#38bdf8;text-decoration:none;font-weight:500">← Back to Admin</a>
 
 </div>
 </div>
