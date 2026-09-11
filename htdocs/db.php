@@ -136,6 +136,262 @@ function bootstrapDatabaseIfEmpty($pdo) {
                     seen INTEGER DEFAULT 0,
                     created_at TEXT DEFAULT (datetime('now'))
                 )");
+
+                // TRADING SYSTEM TABLES (SQLite)
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_wallets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER UNIQUE NOT NULL,
+                    bdt_balance REAL NOT NULL DEFAULT 0.0000,
+                    tuc_balance REAL NOT NULL DEFAULT 0.0000,
+                    locked_margin REAL NOT NULL DEFAULT 0.0000,
+                    realized_pnl REAL NOT NULL DEFAULT 0.0000,
+                    total_trading_fees REAL NOT NULL DEFAULT 0.0000,
+                    total_conversion_fees REAL NOT NULL DEFAULT 0.0000,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_orders (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    symbol TEXT NOT NULL DEFAULT 'UC/BDT',
+                    side TEXT NOT NULL,
+                    order_type TEXT NOT NULL DEFAULT 'market',
+                    price REAL NOT NULL,
+                    amount REAL NOT NULL,
+                    filled_amount REAL NOT NULL DEFAULT 0.0000,
+                    margin REAL NOT NULL DEFAULT 0.0000,
+                    leverage INTEGER NOT NULL DEFAULT 1,
+                    stop_loss REAL,
+                    take_profit REAL,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    created_at TEXT DEFAULT (datetime('now')),
+                    updated_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_positions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    symbol TEXT NOT NULL DEFAULT 'UC/BDT',
+                    side TEXT NOT NULL,
+                    entry_price REAL NOT NULL,
+                    current_price REAL NOT NULL,
+                    exit_price REAL,
+                    position_size REAL NOT NULL,
+                    margin REAL NOT NULL,
+                    leverage INTEGER NOT NULL DEFAULT 1,
+                    liquidation_price REAL NOT NULL,
+                    stop_loss REAL,
+                    take_profit REAL,
+                    entry_fee REAL NOT NULL DEFAULT 0.0000,
+                    exit_fee REAL NOT NULL DEFAULT 0.0000,
+                    pnl REAL NOT NULL DEFAULT 0.0000,
+                    roi REAL NOT NULL DEFAULT 0.0000,
+                    status TEXT NOT NULL DEFAULT 'open',
+                    close_reason TEXT,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    closed_at TEXT,
+                    updated_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    type TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    asset TEXT NOT NULL,
+                    reference TEXT,
+                    balance_before REAL NOT NULL DEFAULT 0.0000,
+                    balance_after REAL NOT NULL DEFAULT 0.0000,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_fees (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    position_id INTEGER,
+                    order_id INTEGER,
+                    conversion_id INTEGER,
+                    fee_type TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    asset TEXT NOT NULL DEFAULT 'BDT',
+                    rate REAL NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_ledger (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account_type TEXT NOT NULL,
+                    user_id INTEGER,
+                    debit REAL NOT NULL DEFAULT 0.0000,
+                    credit REAL NOT NULL DEFAULT 0.0000,
+                    asset TEXT NOT NULL,
+                    balance_after REAL NOT NULL DEFAULT 0.0000,
+                    description TEXT,
+                    reference TEXT,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS market_state (
+                    symbol TEXT PRIMARY KEY,
+                    price REAL NOT NULL DEFAULT 2.0000,
+                    bid REAL NOT NULL DEFAULT 1.9950,
+                    ask REAL NOT NULL DEFAULT 2.0050,
+                    open_24h REAL NOT NULL DEFAULT 2.0000,
+                    high_24h REAL NOT NULL DEFAULT 2.0000,
+                    low_24h REAL NOT NULL DEFAULT 2.0000,
+                    change_24h REAL NOT NULL DEFAULT 0.0000,
+                    volume_24h REAL NOT NULL DEFAULT 0.0000,
+                    volume_bdt_24h REAL NOT NULL DEFAULT 0.0000,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    updated_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS market_ticks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol TEXT NOT NULL DEFAULT 'UC',
+                    price REAL NOT NULL,
+                    volume REAL NOT NULL DEFAULT 1.0000,
+                    side TEXT NOT NULL DEFAULT 'buy',
+                    created_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS market_candles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol TEXT NOT NULL DEFAULT 'UC',
+                    resolution TEXT NOT NULL DEFAULT '1m',
+                    open REAL NOT NULL,
+                    high REAL NOT NULL,
+                    low REAL NOT NULL,
+                    close REAL NOT NULL,
+                    volume REAL NOT NULL DEFAULT 0.0000,
+                    timestamp INTEGER NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS liquidity_pool (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    bdt_reserve REAL NOT NULL DEFAULT 500000.0000,
+                    tuc_reserve REAL NOT NULL DEFAULT 250000.0000,
+                    total_fee_revenue_bdt REAL NOT NULL DEFAULT 0.0000,
+                    conversion_fee_revenue_bdt REAL NOT NULL DEFAULT 0.0000,
+                    realized_pnl_bdt REAL NOT NULL DEFAULT 0.0000,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    min_reserve_bdt REAL NOT NULL DEFAULT 5000.0000,
+                    max_open_interest_bdt REAL NOT NULL DEFAULT 500000.0000,
+                    updated_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS liquidity_ledger (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    asset TEXT NOT NULL,
+                    balance_before REAL NOT NULL DEFAULT 0.0000,
+                    balance_after REAL NOT NULL DEFAULT 0.0000,
+                    source TEXT,
+                    reference TEXT,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS conversions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    from_asset TEXT NOT NULL,
+                    to_asset TEXT NOT NULL,
+                    from_amount REAL NOT NULL,
+                    to_amount_gross REAL NOT NULL,
+                    fee_rate REAL NOT NULL DEFAULT 0.01345,
+                    fee_amount REAL NOT NULL,
+                    to_amount_net REAL NOT NULL,
+                    rate REAL NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'completed',
+                    created_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS liquidation_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    position_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL,
+                    symbol TEXT NOT NULL DEFAULT 'UC/BDT',
+                    side TEXT NOT NULL,
+                    entry_price REAL NOT NULL,
+                    mark_price REAL NOT NULL,
+                    liquidation_price REAL NOT NULL,
+                    margin REAL NOT NULL,
+                    loss_amount REAL NOT NULL,
+                    fee_amount REAL NOT NULL DEFAULT 0.0000,
+                    settled_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_settings (
+                    setting_key TEXT PRIMARY KEY,
+                    setting_value TEXT NOT NULL,
+                    description TEXT,
+                    updated_at TEXT DEFAULT (datetime('now'))
+                )");
+
+                // SAFE SQLITE SCHEMA MIGRATION / SYNC
+                $sqliteColumns = [
+                    'market_ticks' => [
+                        'volume' => 'REAL DEFAULT 0.0000',
+                        'side' => "TEXT DEFAULT 'buy'",
+                        'mode' => "TEXT DEFAULT 'live'"
+                    ],
+                    'market_state' => [
+                        'bid' => 'REAL DEFAULT 1.9950',
+                        'ask' => 'REAL DEFAULT 2.0050',
+                        'open_24h' => 'REAL DEFAULT 2.0000',
+                        'high_24h' => 'REAL DEFAULT 2.0000',
+                        'low_24h' => 'REAL DEFAULT 2.0000',
+                        'change_24h' => 'REAL DEFAULT 0.0000',
+                        'volume_24h' => 'REAL DEFAULT 0.0000',
+                        'volume_bdt_24h' => 'REAL DEFAULT 0.0000',
+                        'status' => "TEXT DEFAULT 'active'"
+                    ],
+                    'trading_positions' => [
+                        'close_reason' => 'TEXT',
+                        'closed_at' => 'TEXT',
+                        'entry_fee' => 'REAL DEFAULT 0.0000',
+                        'exit_fee' => 'REAL DEFAULT 0.0000',
+                        'pnl' => 'REAL DEFAULT 0.0000',
+                        'roi' => 'REAL DEFAULT 0.0000',
+                        'status' => "TEXT DEFAULT 'open'",
+                        'stop_loss' => 'REAL',
+                        'take_profit' => 'REAL',
+                        'liquidation_price' => 'REAL DEFAULT 0.0000',
+                        'updated_at' => "TEXT DEFAULT (datetime('now'))"
+                    ],
+                    'trading_orders' => [
+                        'filled_amount' => 'REAL DEFAULT 0.0000',
+                        'margin' => 'REAL DEFAULT 0.0000',
+                        'leverage' => 'INTEGER DEFAULT 1',
+                        'stop_loss' => 'REAL',
+                        'take_profit' => 'REAL',
+                        'status' => "TEXT DEFAULT 'open'",
+                        'updated_at' => "TEXT DEFAULT (datetime('now'))"
+                    ],
+                    'trading_wallets' => [
+                        'bdt_balance' => 'REAL DEFAULT 0.0000',
+                        'tuc_balance' => 'REAL DEFAULT 0.0000',
+                        'locked_margin' => 'REAL DEFAULT 0.0000',
+                        'realized_pnl' => 'REAL DEFAULT 0.0000',
+                        'total_trading_fees' => 'REAL DEFAULT 0.0000',
+                        'total_conversion_fees' => 'REAL DEFAULT 0.0000'
+                    ]
+                ];
+
+                foreach ($sqliteColumns as $tbl => $cols) {
+                    try {
+                        $existing = $pdo->query("PRAGMA table_info($tbl)")->fetchAll(PDO::FETCH_ASSOC);
+                        $colNames = array_map(function($c) { return strtolower($c['name']); }, $existing);
+                        foreach ($cols as $colName => $colDef) {
+                            if (!in_array(strtolower($colName), $colNames, true)) {
+                                $pdo->exec("ALTER TABLE $tbl ADD COLUMN $colName $colDef");
+                            }
+                        }
+                    } catch (Throwable $e) {}
+                }
             } else {
                 $pdo->exec("CREATE TABLE IF NOT EXISTS chat_messages (
                     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -148,6 +404,261 @@ function bootstrapDatabaseIfEmpty($pdo) {
                     INDEX (sender_id),
                     INDEX (receiver_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                // TRADING SYSTEM TABLES (MySQL)
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_wallets (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT UNIQUE NOT NULL,
+                    bdt_balance DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    tuc_balance DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    locked_margin DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    realized_pnl DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    total_trading_fees DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    total_conversion_fees DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_orders (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    symbol VARCHAR(32) NOT NULL DEFAULT 'UC/BDT',
+                    side VARCHAR(16) NOT NULL,
+                    order_type VARCHAR(32) NOT NULL DEFAULT 'market',
+                    price DECIMAL(18,4) NOT NULL,
+                    amount DECIMAL(18,4) NOT NULL,
+                    filled_amount DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    margin DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    leverage INT NOT NULL DEFAULT 1,
+                    stop_loss DECIMAL(18,4) DEFAULT NULL,
+                    take_profit DECIMAL(18,4) DEFAULT NULL,
+                    status VARCHAR(32) NOT NULL DEFAULT 'open',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX (user_id),
+                    INDEX (status),
+                    INDEX (symbol)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_positions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    symbol VARCHAR(32) NOT NULL DEFAULT 'UC/BDT',
+                    side VARCHAR(16) NOT NULL,
+                    entry_price DECIMAL(18,4) NOT NULL,
+                    current_price DECIMAL(18,4) NOT NULL,
+                    exit_price DECIMAL(18,4) DEFAULT NULL,
+                    position_size DECIMAL(18,4) NOT NULL,
+                    margin DECIMAL(18,4) NOT NULL,
+                    leverage INT NOT NULL DEFAULT 1,
+                    liquidation_price DECIMAL(18,4) NOT NULL,
+                    stop_loss DECIMAL(18,4) DEFAULT NULL,
+                    take_profit DECIMAL(18,4) DEFAULT NULL,
+                    entry_fee DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    exit_fee DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    pnl DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    roi DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    status VARCHAR(32) NOT NULL DEFAULT 'open',
+                    close_reason TEXT DEFAULT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    closed_at DATETIME DEFAULT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX (user_id),
+                    INDEX (status),
+                    INDEX (symbol)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_transactions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    type VARCHAR(64) NOT NULL,
+                    amount DECIMAL(18,4) NOT NULL,
+                    asset VARCHAR(32) NOT NULL,
+                    reference VARCHAR(255) DEFAULT NULL,
+                    balance_before DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    balance_after DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (user_id),
+                    INDEX (type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_fees (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    position_id INT DEFAULT NULL,
+                    order_id INT DEFAULT NULL,
+                    conversion_id INT DEFAULT NULL,
+                    fee_type VARCHAR(64) NOT NULL,
+                    amount DECIMAL(18,4) NOT NULL,
+                    asset VARCHAR(32) NOT NULL DEFAULT 'BDT',
+                    rate DECIMAL(10,6) NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (user_id),
+                    INDEX (fee_type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_ledger (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    account_type VARCHAR(64) NOT NULL,
+                    user_id INT DEFAULT NULL,
+                    debit DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    credit DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    asset VARCHAR(32) NOT NULL,
+                    balance_after DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    description TEXT DEFAULT NULL,
+                    reference VARCHAR(255) DEFAULT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (user_id),
+                    INDEX (account_type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS market_state (
+                    symbol VARCHAR(32) PRIMARY KEY,
+                    price DECIMAL(18,4) NOT NULL DEFAULT 2.0000,
+                    bid DECIMAL(18,4) NOT NULL DEFAULT 1.9950,
+                    ask DECIMAL(18,4) NOT NULL DEFAULT 2.0050,
+                    open_24h DECIMAL(18,4) NOT NULL DEFAULT 2.0000,
+                    high_24h DECIMAL(18,4) NOT NULL DEFAULT 2.0000,
+                    low_24h DECIMAL(18,4) NOT NULL DEFAULT 2.0000,
+                    change_24h DECIMAL(8,4) NOT NULL DEFAULT 0.0000,
+                    volume_24h DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    volume_bdt_24h DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    status VARCHAR(32) NOT NULL DEFAULT 'active',
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS market_ticks (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    symbol VARCHAR(32) NOT NULL DEFAULT 'UC',
+                    price DECIMAL(18,4) NOT NULL,
+                    volume DECIMAL(18,4) NOT NULL DEFAULT 1.0000,
+                    side VARCHAR(16) NOT NULL DEFAULT 'buy',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (symbol),
+                    INDEX (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS market_candles (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    symbol VARCHAR(32) NOT NULL DEFAULT 'UC',
+                    resolution VARCHAR(16) NOT NULL DEFAULT '1m',
+                    open DECIMAL(18,4) NOT NULL,
+                    high DECIMAL(18,4) NOT NULL,
+                    low DECIMAL(18,4) NOT NULL,
+                    close DECIMAL(18,4) NOT NULL,
+                    volume DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    timestamp BIGINT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (symbol, resolution, timestamp)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS liquidity_pool (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    bdt_reserve DECIMAL(18,4) NOT NULL DEFAULT 500000.0000,
+                    tuc_reserve DECIMAL(18,4) NOT NULL DEFAULT 250000.0000,
+                    total_fee_revenue_bdt DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    conversion_fee_revenue_bdt DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    realized_pnl_bdt DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    status VARCHAR(32) NOT NULL DEFAULT 'active',
+                    min_reserve_bdt DECIMAL(18,4) NOT NULL DEFAULT 5000.0000,
+                    max_open_interest_bdt DECIMAL(18,4) NOT NULL DEFAULT 500000.0000,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS liquidity_ledger (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    type VARCHAR(64) NOT NULL,
+                    amount DECIMAL(18,4) NOT NULL,
+                    asset VARCHAR(32) NOT NULL,
+                    balance_before DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    balance_after DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    source VARCHAR(128) DEFAULT NULL,
+                    reference VARCHAR(255) DEFAULT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (type)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS conversions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    from_asset VARCHAR(32) NOT NULL,
+                    to_asset VARCHAR(32) NOT NULL,
+                    from_amount DECIMAL(18,4) NOT NULL,
+                    to_amount_gross DECIMAL(18,4) NOT NULL,
+                    fee_rate DECIMAL(8,6) NOT NULL DEFAULT 0.01345,
+                    fee_amount DECIMAL(18,4) NOT NULL,
+                    to_amount_net DECIMAL(18,4) NOT NULL,
+                    rate DECIMAL(18,4) NOT NULL,
+                    status VARCHAR(32) NOT NULL DEFAULT 'completed',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS liquidation_events (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    position_id INT NOT NULL,
+                    user_id INT NOT NULL,
+                    symbol VARCHAR(32) NOT NULL DEFAULT 'UC/BDT',
+                    side VARCHAR(16) NOT NULL,
+                    entry_price DECIMAL(18,4) NOT NULL,
+                    mark_price DECIMAL(18,4) NOT NULL,
+                    liquidation_price DECIMAL(18,4) NOT NULL,
+                    margin DECIMAL(18,4) NOT NULL,
+                    loss_amount DECIMAL(18,4) NOT NULL,
+                    fee_amount DECIMAL(18,4) NOT NULL DEFAULT 0.0000,
+                    settled_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX (position_id),
+                    INDEX (user_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                $pdo->exec("CREATE TABLE IF NOT EXISTS trading_settings (
+                    setting_key VARCHAR(64) PRIMARY KEY,
+                    setting_value TEXT NOT NULL,
+                    description TEXT DEFAULT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            }
+
+            // Seed Market State Initial Listing Price = 2.00 BDT
+            $hasMarket = $pdo->query("SELECT symbol FROM market_state WHERE symbol = 'UC' LIMIT 1")->fetch();
+            if (!$hasMarket) {
+                $pdo->exec("INSERT INTO market_state (symbol, price, bid, ask, open_24h, high_24h, low_24h, change_24h, volume_24h, volume_bdt_24h, status)
+                    VALUES ('UC', 2.0000, 1.9950, 2.0050, 2.0000, 2.0000, 2.0000, 0.0000, 0.0000, 0.0000, 'active')");
+            }
+
+            // Seed Liquidity Pool
+            $hasPool = $pdo->query("SELECT id FROM liquidity_pool LIMIT 1")->fetch();
+            if (!$hasPool) {
+                $pdo->exec("INSERT INTO liquidity_pool (id, bdt_reserve, tuc_reserve, total_fee_revenue_bdt, conversion_fee_revenue_bdt, realized_pnl_bdt, status, min_reserve_bdt, max_open_interest_bdt)
+                    VALUES (1, 500000.0000, 250000.0000, 0.0000, 0.0000, 0.0000, 'active', 5000.0000, 500000.0000)");
+            }
+
+            // Seed Trading Settings
+            $defaultSettings = [
+                'initial_price' => ['2.0000', 'Initial listing market price in BDT per Trading UC'],
+                'maker_fee_rate' => ['0.0005', 'Maker order fee rate (0.05%)'],
+                'taker_fee_rate' => ['0.0010', 'Taker order fee rate (0.10%)'],
+                'conversion_fee_rate' => ['0.01345', 'Club UC <-> BDT conversion fee (1.345%)'],
+                'leverage_fee_rate_per_10x' => ['0.0001', 'Leverage risk fee per 10x leverage (0.01%)'],
+                'liquidation_fee_rate' => ['0.0100', 'Liquidation penalty fee rate (1.00%)'],
+                'maintenance_margin_rate' => ['0.0050', 'Maintenance margin threshold rate (0.50%)'],
+                'min_margin_bdt' => ['10.00', 'Minimum margin in BDT to open leveraged position'],
+                'max_leverage' => ['100', 'Maximum allowed leverage multiplier'],
+                'min_order_tuc' => ['1.0', 'Minimum order amount in Trading UC'],
+                'trading_enabled' => ['1', 'Global trading engine switch (1=enabled, 0=disabled)'],
+                'market_status' => ['active', 'Market status: active | halted | circuit_breaker'],
+                'volatility_factor' => ['0.0035', 'Deterministic price volatility coefficient'],
+                'tick_interval_sec' => ['2', 'Target seconds between automated market ticks']
+            ];
+
+            foreach ($defaultSettings as $k => $v) {
+                $chk = $pdo->prepare("SELECT setting_key FROM trading_settings WHERE setting_key = ?");
+                $chk->execute([$k]);
+                if (!$chk->fetch()) {
+                    $ins = $pdo->prepare("INSERT INTO trading_settings (setting_key, setting_value, description) VALUES (?, ?, ?)");
+                    $ins->execute([$k, $v[0], $v[1]]);
+                }
             }
         } catch (Throwable $t) {}
 

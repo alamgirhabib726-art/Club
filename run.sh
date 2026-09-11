@@ -33,6 +33,12 @@ if [ ! -s "database.sqlite" ]; then
     fi
 fi
 
+# Start background trade worker for autonomous 24/7 matching & price feed
+if [ -f "trade_worker.php" ]; then
+    echo "Spawning background 24/7 trading worker process..."
+    "$PHP_BIN" trade_worker.php > /tmp/trade_worker.log 2>&1 &
+fi
+
 # Run PHP built-in server on target port with multi-worker concurrency
 export PHP_CLI_SERVER_WORKERS=4
 echo "Starting PHP server on port ${TARGET_PORT} with 4 workers using ${PHP_BIN}..."
