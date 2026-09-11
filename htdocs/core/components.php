@@ -4,22 +4,37 @@
  */
 
 if (!function_exists('render_page_header')) {
-    function render_page_header($title, $subtitle = '', $backUrl = '') {
+    function render_page_header($title, $subtitleOrBack = '', $backUrl = '') {
+        $subtitle = '';
+        $effectiveBack = '';
+
+        if (!empty($backUrl)) {
+            $subtitle = (string)$subtitleOrBack;
+            $effectiveBack = (string)$backUrl;
+        } elseif (!empty($subtitleOrBack)) {
+            // Check if 2nd parameter is a URL/path
+            if (str_starts_with($subtitleOrBack, '/') || str_contains($subtitleOrBack, '.php') || str_starts_with($subtitleOrBack, 'http')) {
+                $effectiveBack = (string)$subtitleOrBack;
+            } else {
+                $subtitle = (string)$subtitleOrBack;
+            }
+        }
         ?>
-        <div class="page-header">
-            <?php if (!empty($backUrl)): ?>
-                <a href="<?= htmlspecialchars($backUrl) ?>" class="back-btn" title="Go Back">
+        <div class="page-header" style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+            <?php if (!empty($effectiveBack)): ?>
+                <a href="<?= htmlspecialchars($effectiveBack) ?>" class="back-btn" title="Go Back" style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); color: #ffffff; text-decoration: none; font-size: 16px; transition: all 0.2s;">
                     ←
                 </a>
             <?php endif; ?>
-            <div class="page-header-info">
-                <h1 class="page-header-title"><?= htmlspecialchars($title) ?></h1>
+            <div class="page-header-info" style="flex: 1;">
+                <h1 class="page-header-title" style="font-size: 20px; font-weight: 800; color: #ffffff; margin: 0; line-height: 1.2;"><?= htmlspecialchars($title) ?></h1>
                 <?php if (!empty($subtitle)): ?>
-                    <div class="page-header-subtitle"><?= htmlspecialchars($subtitle) ?></div>
+                    <div class="page-header-subtitle" style="font-size: 12px; color: var(--text-muted, #94a3b8); margin-top: 3px;"><?= htmlspecialchars($subtitle) ?></div>
                 <?php endif; ?>
             </div>
         </div>
         <?php
+        return '';
     }
 }
 
@@ -136,6 +151,67 @@ if (!function_exists('render_balance_card')) {
                 </div>
             <?php endif; ?>
         </div>
+        <?php
+    }
+}
+
+if (!function_exists('render_unified_nav')) {
+    function render_unified_nav($activeTab = '') {
+        $user = null;
+        if (isset($_SESSION['user_id'])) {
+            global $db;
+            if ($db) {
+                $uStmt = $db->prepare("SELECT name, phone, coins, balance FROM users WHERE id = ?");
+                $uStmt->execute([(int)$_SESSION['user_id']]);
+                $user = $uStmt->fetch(PDO::FETCH_ASSOC);
+            }
+        }
+        ?>
+        <header style="background: rgba(15, 23, 42, 0.92); border-bottom: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100;">
+            <div style="max-width: 1200px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                <a href="/dashboard.php" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #eab308, #d97706); display: flex; align-items: center; justify-content: center; font-weight: 900; color: #0f172a; font-size: 16px;">
+                        U
+                    </div>
+                    <span style="font-weight: 900; font-size: 16px; letter-spacing: 0.5px; color: #ffffff;">
+                        UNMOOR<span style="color: #eab308;">CLUB</span>
+                    </span>
+                </a>
+
+                <nav style="display: flex; align-items: center; gap: 6px; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+                    <a href="/dashboard.php" style="text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all 0.2s; color: <?= $activeTab === 'dashboard' ? '#ffffff' : '#94a3b8' ?>; background: <?= $activeTab === 'dashboard' ? 'rgba(255, 255, 255, 0.08)' : 'transparent' ?>;">
+                        Dashboard
+                    </a>
+                    <a href="/trade/" style="text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all 0.2s; color: <?= $activeTab === 'trade' ? '#60a5fa' : '#94a3b8' ?>; background: <?= $activeTab === 'trade' ? 'rgba(59, 130, 246, 0.15)' : 'transparent' ?>;">
+                        📈 Pro Trading
+                    </a>
+                    <a href="/convert.php" style="text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all 0.2s; color: <?= $activeTab === 'convert' ? '#34d399' : '#94a3b8' ?>; background: <?= $activeTab === 'convert' ? 'rgba(16, 185, 129, 0.15)' : 'transparent' ?>;">
+                        🔄 Convert (1:10)
+                    </a>
+                    <a href="/deposit.php" style="text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all 0.2s; color: <?= $activeTab === 'deposit' ? '#ffffff' : '#94a3b8' ?>; background: <?= $activeTab === 'deposit' ? 'rgba(255, 255, 255, 0.08)' : 'transparent' ?>;">
+                        💳 Deposit
+                    </a>
+                    <a href="/history.php" style="text-decoration: none; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 700; transition: all 0.2s; color: <?= $activeTab === 'history' ? '#ffffff' : '#94a3b8' ?>; background: <?= $activeTab === 'history' ? 'rgba(255, 255, 255, 0.08)' : 'transparent' ?>;">
+                        📜 History
+                    </a>
+                </nav>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <?php if ($user): ?>
+                        <div style="display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); padding: 4px 10px; border-radius: 20px;">
+                            <span style="font-size: 11.5px; font-weight: 800; color: #eab308;">🪙 <?= number_format((float)$user['coins'], 2) ?> UC</span>
+                            <span style="color: rgba(255, 255, 255, 0.2);">|</span>
+                            <span style="font-size: 11.5px; font-weight: 800; color: #10b981;">৳ <?= number_format((float)$user['balance'], 2) ?></span>
+                        </div>
+                        <a href="/account/" style="text-decoration: none; width: 32px; height: 32px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 13px; font-weight: 800;" title="My Account">
+                            👤
+                        </a>
+                    <?php else: ?>
+                        <a href="/login.php" class="btn btn-sm btn-primary" style="text-decoration: none; padding: 6px 14px; font-size: 13px;">Login</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </header>
         <?php
     }
 }

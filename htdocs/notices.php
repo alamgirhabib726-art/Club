@@ -13,7 +13,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $stmt = $db->query("
-    SELECT id, text, created_at
+    SELECT id, COALESCE(message, text) AS message, created_at
     FROM notices
     ORDER BY id DESC
     LIMIT 30
@@ -31,7 +31,7 @@ $notices = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <body>
     <div class="page-wrap">
         
-        <?= render_page_header("Club Announcements", "/dashboard.php") ?>
+        <?php render_page_header("Club Announcements", "Official broadcasts & updates", "/dashboard.php"); ?>
 
         <div class="card">
             <h3 style="font-size: 14px; font-weight: 800; color: #ffffff; margin-bottom: 12px; text-transform: uppercase;">
@@ -43,7 +43,7 @@ $notices = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <?php foreach ($notices as $n): ?>
                         <div style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px;">
                             <div style="font-size: 13.5px; color: #ffffff; line-height: 1.5;">
-                                <?= nl2br(htmlspecialchars($n['text'])) ?>
+                                <?= nl2br(htmlspecialchars($n['message'] ?? '')) ?>
                             </div>
                             <div style="font-size: 11px; color: var(--text-dim); margin-top: 8px;">
                                 ⏱ <?= date("d M Y • h:i A", strtotime($n['created_at'])) ?>
@@ -58,7 +58,7 @@ $notices = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <?php endif; ?>
         </div>
 
-        <?= render_support_widget() ?>
+        <?php render_support_widget(); ?>
 
     </div>
 

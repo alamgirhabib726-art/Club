@@ -524,4 +524,41 @@ class MarketEngine {
             }
         }
     }
+
+    /**
+     * Get authoritative market state
+     */
+    public static function getMarketState(PDO $db): array {
+        $stmt = $db->query("SELECT * FROM market_state WHERE symbol = 'UC' LIMIT 1");
+        $state = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$state) {
+            return self::heartbeat($db, true);
+        }
+
+        return [
+            'symbol' => 'UC/BDT',
+            'name' => 'Trading UC (tUC)',
+            'price' => (float)$state['price'],
+            'bid' => (float)$state['bid'],
+            'ask' => (float)$state['ask'],
+            'open_24h' => (float)$state['open_24h'],
+            'high_24h' => (float)$state['high_24h'],
+            'low_24h' => (float)$state['low_24h'],
+            'change_24h' => (float)$state['change_24h'],
+            'volume_24h' => (float)$state['volume_24h'],
+            'volume_bdt_24h' => (float)$state['volume_bdt_24h'],
+            'status' => $state['status'] ?? 'active',
+            'updated_at' => $state['updated_at']
+        ];
+    }
+
+    /**
+     * Get recent market trades / ticks
+     */
+    public static function getRecentTrades(PDO $db, int $limit = 30): array {
+        $stmt = $db->prepare("SELECT id, price, volume, side, created_at FROM market_ticks WHERE symbol = 'UC' ORDER BY id DESC LIMIT ?");
+        $stmt->execute([$limit]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
