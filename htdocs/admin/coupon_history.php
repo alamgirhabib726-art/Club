@@ -69,7 +69,7 @@ require_once __DIR__ . "/layout_top.php";
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <strong style="color: #ffffff;">৳ <?= number_format($c['amount'], 2) ?></strong>
+                                <strong style="color: #ffffff;">🪙 <?= number_format($c['amount'], 2) ?> Coins</strong>
                             </td>
                             <td>
                                 <?php if ($c['status'] === 'used'): ?>

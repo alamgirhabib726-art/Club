@@ -41,8 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $rawPrice = (float)$prod['price'];
     $rawDisc  = (float)($prod['discount'] ?? 0);
-    $finalBdt = max(0, round($rawPrice - ($rawDisc > 1 ? $rawDisc : ($rawPrice * $rawDisc / 100)), 2));
-    $neededCoins = round($finalBdt * 10, 2);
+    $neededCoins = max(0, round($rawPrice - ($rawDisc > 1 ? $rawDisc : ($rawPrice * $rawDisc / 100)), 2));
 
     $res = lock_user_order($db, $uid, $neededCoins, $prod['id'], $prod['slug'] ?: ('prod_'.$prod['id']));
 
@@ -177,8 +176,7 @@ if (!$singleProduct) {
             $p = $singleProduct;
             $rawPrice = (float)$p['price'];
             $rawDisc  = (float)($p['discount'] ?? 0);
-            $finalBdt = max(0, round($rawPrice - ($rawDisc > 1 ? $rawDisc : ($rawPrice * $rawDisc / 100)), 2));
-            $neededCoins = round($finalBdt * 10, 2);
+            $neededCoins = max(0, round($rawPrice - ($rawDisc > 1 ? $rawDisc : ($rawPrice * $rawDisc / 100)), 2));
             $userCoins = (float)($balances['coins'] ?? 0);
             $hasEnoughCoins = $userCoins >= $neededCoins;
             ?>
@@ -194,7 +192,7 @@ if (!$singleProduct) {
                         </h2>
                     </div>
                     <?php if ($rawDisc > 0): ?>
-                        <span class="prod-badge badge-discount">Save ৳<?= number_format($rawPrice - $finalBdt, 2) ?></span>
+                        <span class="prod-badge badge-discount">Save 🪙 <?= number_format($rawPrice - $neededCoins, 2) ?></span>
                     <?php endif; ?>
                 </div>
 
@@ -203,20 +201,19 @@ if (!$singleProduct) {
                     <div style="display: flex; justify-content: space-between; font-size: 13.5px; color: var(--text-muted); margin-bottom: 6px;">
                         <span>Regular Price:</span>
                         <span style="<?= $rawDisc > 0 ? 'text-decoration: line-through; color: var(--text-dim);' : 'color: #ffffff;' ?>">
-                            ৳<?= number_format($rawPrice, 2) ?>
+                            🪙 <?= number_format($rawPrice, 2) ?> Coins
                         </span>
                     </div>
                     <?php if ($rawDisc > 0): ?>
                         <div style="display: flex; justify-content: space-between; font-size: 13.5px; color: #0ecb81; margin-bottom: 6px;">
                             <span>Special Discount:</span>
-                            <span>- ৳<?= number_format($rawPrice - $finalBdt, 2) ?></span>
+                            <span>- 🪙 <?= number_format($rawPrice - $neededCoins, 2) ?> Coins</span>
                         </div>
                     <?php endif; ?>
                     <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border-color); padding-top: 10px; margin-top: 6px;">
                         <span style="font-weight: 800; color: #ffffff; font-size: 15px;">Final Payable:</span>
                         <div style="text-align: right;">
-                            <div style="font-size: 20px; font-weight: 900; color: var(--accent-gold);">৳<?= number_format($finalBdt, 2) ?></div>
-                            <div style="font-size: 13px; color: #fcd535; font-weight: 700;">🪙 <?= number_format($neededCoins, 2) ?> Coins</div>
+                            <div style="font-size: 22px; font-weight: 900; color: var(--accent-gold);">🪙 <?= number_format($neededCoins, 2) ?> Coins</div>
                         </div>
                     </div>
                 </div>
@@ -238,7 +235,6 @@ if (!$singleProduct) {
 
                 <!-- Checkout Actions -->
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <!-- 1. Instant Coin Purchase -->
                     <button type="button" 
                             id="btn-buy-coins" 
                             class="btn btn-gold btn-block" 
@@ -246,13 +242,6 @@ if (!$singleProduct) {
                             onclick="handleCoinPurchase(<?= (int)$p['id'] ?>, '<?= htmlspecialchars(addslashes($p['name'] ?: $p['title'])) ?>', <?= $neededCoins ?>, <?= $userCoins ?>)">
                         ⚡ Instant Buy with Coins (🪙 <?= number_format($neededCoins, 2) ?>)
                     </button>
-
-                    <!-- 2. Pay with BDT / Gateway -->
-                    <a href="purchase_pay.php?id=<?= (int)$p['id'] ?>" 
-                       class="btn btn-outline btn-block" 
-                       style="padding: 13px; font-size: 14.5px; text-decoration: none; text-align: center; color: #ffffff; border-color: rgba(255, 255, 255, 0.15);">
-                        💳 Pay with BDT (bKash / Nagad / Rocket) ›
-                    </a>
                 </div>
             </div>
 
@@ -266,7 +255,7 @@ if (!$singleProduct) {
                         💎 Official Store Catalog
                     </h2>
                     <p style="font-size: 13px; color: var(--text-muted); margin: 0;">
-                        Purchase VIP boosts, click packages, and club utilities with Coins or BDT.
+                        Purchase VIP boosts, click packages, and club utilities with Coins.
                     </p>
                 </div>
                 <div style="text-align: right;">
@@ -288,15 +277,14 @@ if (!$singleProduct) {
                         <?php
                         $iPrice = (float)$item['price'];
                         $iDisc  = (float)($item['discount'] ?? 0);
-                        $iFinal = max(0, round($iPrice - ($iDisc > 1 ? $iDisc : ($iPrice * $iDisc / 100)), 2));
-                        $iCoins = round($iFinal * 10, 2);
+                        $iCoins = max(0, round($iPrice - ($iDisc > 1 ? $iDisc : ($iPrice * $iDisc / 100)), 2));
                         ?>
                         <div class="store-card">
                             <div>
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                     <span class="prod-badge badge-instant">🚚 <?= htmlspecialchars($item['delivery_time'] ?: 'Instant') ?></span>
                                     <?php if ($iDisc > 0): ?>
-                                        <span class="prod-badge badge-discount">Save ৳<?= number_format($iPrice - $iFinal, 2) ?></span>
+                                        <span class="prod-badge badge-discount">Save 🪙 <?= number_format($iPrice - $iCoins, 2) ?></span>
                                     <?php endif; ?>
                                 </div>
                                 <h3 style="font-size: 16px; font-weight: 800; color: #ffffff; margin-bottom: 6px;">
@@ -308,13 +296,11 @@ if (!$singleProduct) {
                                 <div class="price-chip" style="margin: 12px 0;">
                                     <div style="display: flex; justify-content: space-between; align-items: baseline;">
                                         <div>
-                                            <span style="font-size: 18px; font-weight: 900; color: var(--accent-gold);">৳<?= number_format($iFinal, 2) ?></span>
+                                            <span style="font-size: 18px; font-weight: 900; color: var(--accent-gold);">🪙 <?= number_format($iCoins, 2) ?></span>
+                                            <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Coins</span>
                                             <?php if ($iDisc > 0): ?>
-                                                <span style="font-size: 12px; text-decoration: line-through; color: var(--text-dim); margin-left: 6px;">৳<?= number_format($iPrice, 2) ?></span>
+                                                <span style="font-size: 12px; text-decoration: line-through; color: var(--text-dim); margin-left: 6px;">🪙 <?= number_format($iPrice, 2) ?></span>
                                             <?php endif; ?>
-                                        </div>
-                                        <div style="font-size: 13px; font-weight: 700; color: #fcd535;">
-                                            🪙 <?= number_format($iCoins, 2) ?>
                                         </div>
                                     </div>
                                 </div>

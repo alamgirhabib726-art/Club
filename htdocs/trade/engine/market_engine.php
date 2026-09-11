@@ -42,18 +42,16 @@ class MarketEngine {
             return $state;
         }
 
-        // Generate next tick price
+        // Generate next tick price (simple organic market random walk)
         $currentPrice = (float)($state['price'] ?? 2.0000);
-        $initialPrice = (float)($settings['initial_price'] ?? 2.0000);
         $volatility = (float)($settings['volatility_factor'] ?? 0.0035);
 
-        // Deterministic price drift & bounded random-walk with mean-reversion
-        $drift = ($initialPrice - $currentPrice) * 0.0005;
+        // Bounded random-walk for simple organic market
         $randSeed = (mt_rand(-1000, 1000) / 1000.0) * $volatility;
-        $priceMultiplier = 1.0 + $drift + $randSeed;
+        $priceMultiplier = 1.0 + $randSeed;
         
         $newPrice = round($currentPrice * $priceMultiplier, 4);
-        $newPrice = max(0.1000, min(50.0000, $newPrice)); // Hard boundaries
+        $newPrice = max(0.0100, min(100.0000, $newPrice)); // Hard boundaries
 
         $spread = round($newPrice * 0.0025, 4); // 0.25% spread
         $bid = round($newPrice - $spread, 4);
@@ -551,6 +549,100 @@ class MarketEngine {
             'status' => $state['status'] ?? 'active',
             'updated_at' => $state['updated_at']
         ];
+    }
+
+    /**
+     * Apply an immediate price impact / shock from liquidity pool adjustments (injection / withdrawal)
+     */
+    public static function applyLiquidityShock(PDO $db, float $targetPrice, string $reason = 'Liquidity Pool Adjustment', float $volume = 500.0): array {
+        $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $nowExpr = ($driver === 'sqlite') ? "datetime('now')" : "NOW()";
+        $now = time();
+
+        $targetPrice = max(0.0100, min(100.0000, round($targetPrice, 4)));
+
+        // Fetch current market state
+        $stmt = $db->query("SELECT * FROM market_state WHERE symbol = 'UC' LIMIT 1");
+        $state = $stmt->fetch(PDO::FETCH_ASSOC);
+        $oldPrice = (float)($state['price'] ?? 2.0000);
+
+        $spread = round($targetPrice * 0.0025, 4);
+        $bid = round($targetPrice - $spread, 4);
+        $ask = round($targetPrice + $spread, 4);
+
+        $tickSide = ($targetPrice >= $oldPrice) ? 'buy' : 'sell';
+
+        $wasInTransaction = $db->inTransaction();
+        if (!$wasInTransaction) {
+            $db->beginTransaction();
+        }
+
+        try {
+            // 1. Record liquidity impact tick
+            $tStmt = $db->prepare("INSERT INTO market_ticks (symbol, price, volume, side, created_at) VALUES ('UC', ?, ?, ?, $nowExpr)");
+            $tStmt->execute([$targetPrice, $volume, $tickSide]);
+
+            // 2. Update candlesticks
+            self::updateCandles($db, $targetPrice, $volume, $now);
+
+            // 3. Compute 24h stats
+            $stats24h = self::calculate24hStats($db, $targetPrice);
+
+            // 4. Update market state
+            $updState = $db->prepare("UPDATE market_state SET 
+                price = ?, 
+                bid = ?, 
+                ask = ?, 
+                high_24h = ?, 
+                low_24h = ?, 
+                change_24h = ?, 
+                volume_24h = ?, 
+                volume_bdt_24h = ?, 
+                updated_at = $nowExpr 
+                WHERE symbol = 'UC'");
+            $updState->execute([
+                $targetPrice,
+                $bid,
+                $ask,
+                $stats24h['high'],
+                $stats24h['low'],
+                $stats24h['change'],
+                $stats24h['volume'],
+                $stats24h['volume_bdt']
+            ]);
+
+            // 5. Synchronize initial_price in settings to anchor future drift
+            try {
+                $db->prepare("UPDATE trading_settings SET setting_value = ? WHERE setting_key = 'initial_price'")->execute([$targetPrice]);
+            } catch (Throwable $e) {}
+
+            // 6. Match limit orders at new price
+            self::matchLimitOrders($db, $targetPrice);
+
+            // 7. Check SL / TP
+            self::checkStopLossTakeProfit($db, $targetPrice);
+
+            // 8. Process liquidations
+            LiquidationEngine::processLiquidations($db, $targetPrice);
+
+            if (!$wasInTransaction) {
+                $db->commit();
+            }
+
+            return [
+                'success' => true,
+                'old_price' => $oldPrice,
+                'new_price' => $targetPrice,
+                'price_change' => round($targetPrice - $oldPrice, 4),
+                'percent_change' => ($oldPrice > 0) ? round((($targetPrice - $oldPrice) / $oldPrice) * 100, 2) : 0
+            ];
+        } catch (Throwable $e) {
+            if (!$wasInTransaction && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log("MarketEngine::applyLiquidityShock Error: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
     /**

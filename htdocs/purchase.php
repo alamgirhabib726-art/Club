@@ -27,7 +27,7 @@ foreach ($dbProducts as $row) {
     $key = $row['slug'] ?: ($row['type'] ?: ('prod_'.$row['id']));
     $price = (float)$row['price'];
     $disc = (float)($row['discount'] ?? 0);
-    $finalBdt = max(0, round($price - ($disc > 1 ? $disc : ($price * $disc / 100)), 2));
+    $finalCoins = max(0, round($price - ($disc > 1 ? $disc : ($price * $disc / 100)), 2));
     
     $name = $row['name'] ?: $row['title'];
     $icon = '📦';
@@ -47,9 +47,9 @@ foreach ($dbProducts as $row) {
         'name'      => $name,
         'clean_name'=> $cleanName,
         'icon'      => $icon,
-        'coins'     => round($finalBdt * 10, 2),
-        'price_bdt' => $finalBdt,
-        'tag'       => $disc > 0 ? 'Discounted' : ($finalBdt >= 50 ? 'VIP Premium' : 'Active Item'),
+        'coins'     => $finalCoins,
+        'price_bdt' => $finalCoins,
+        'tag'       => $disc > 0 ? 'Discounted' : ($finalCoins >= 50 ? 'VIP Premium' : 'Active Item'),
         'desc'      => 'Delivery schedule: ' . ($row['delivery_time'] ?: 'Instant')
     ];
 }

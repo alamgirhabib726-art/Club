@@ -49,9 +49,9 @@ require_once __DIR__ . "/layout_top.php";
 
     <form method="post">
         <div class="admin-form-group">
-            <label class="admin-label" for="premium_price">💎 Premium VIP Upgrade Price (৳ BDT)</label>
+            <label class="admin-label" for="premium_price">💎 Premium VIP Upgrade Price (🪙 Coins)</label>
             <input type="number" step="any" id="premium_price" name="premium_price" value="<?= htmlspecialchars($settings['premium_price'] ?? '300') ?>" class="admin-input" required>
-            <div style="font-size: 12px; color: var(--admin-text-dim); margin-top: 4px;">Cost charged to members when applying for VIP status.</div>
+            <div style="font-size: 12px; color: var(--admin-text-dim); margin-top: 4px;">Coins charged to members when applying for VIP status.</div>
         </div>
 
         <div class="admin-form-group">
@@ -61,9 +61,9 @@ require_once __DIR__ . "/layout_top.php";
         </div>
 
         <div class="admin-form-group">
-            <label class="admin-label" for="apply_fee">📝 Member Application Fee (৳ BDT)</label>
+            <label class="admin-label" for="apply_fee">📝 Member Application Fee (🪙 Coins)</label>
             <input type="number" step="any" id="apply_fee" name="apply_fee" value="<?= htmlspecialchars($settings['apply_fee'] ?? '100') ?>" class="admin-input">
-            <div style="font-size: 12px; color: var(--admin-text-dim); margin-top: 4px;">Standard registration approval deposit fee.</div>
+            <div style="font-size: 12px; color: var(--admin-text-dim); margin-top: 4px;">Standard registration approval deposit coins.</div>
         </div>
 
         <button type="submit" class="admin-btn admin-btn-primary" style="margin-top: 10px;">

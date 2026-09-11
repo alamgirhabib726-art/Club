@@ -14,7 +14,6 @@ $prefillUserId = (int)($_GET['user_id'] ?? 0);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone    = trim($_POST['phone'] ?? '');
     $userId   = (int)($_POST['user_id'] ?? 0);
-    $currency = $_POST['currency'] ?? 'coins'; // 'coins' or 'balance'
     $action   = $_POST['action'] ?? 'add'; // 'add' or 'deduct'
     $amount   = (float)($_POST['amount'] ?? 0);
     $note     = trim($_POST['note'] ?? '');
@@ -37,42 +36,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $err = "Specified member could not be found.";
         } else {
             $delta = ($action === 'deduct') ? -$amount : $amount;
-            $column = ($currency === 'balance') ? 'balance' : 'coins';
 
-            if ($action === 'deduct' && (float)$user[$column] < $amount) {
-                $err = "User only has " . number_format($user[$column], 2) . " " . ($currency === 'balance' ? 'BDT' : 'UC') . ". Cannot deduct " . number_format($amount, 2);
+            if ($action === 'deduct' && (float)$user['coins'] < $amount) {
+                $err = "User only has 🪙 " . number_format($user['coins'], 2) . " Coins. Cannot deduct " . number_format($amount, 2);
             } else {
                 $db->beginTransaction();
                 try {
                     $now = date('Y-m-d H:i:s');
-                    $stmt = $db->prepare("UPDATE users SET $column = $column + ? WHERE id = ?");
+                    $stmt = $db->prepare("UPDATE users SET coins = coins + ? WHERE id = ?");
                     $stmt->execute([$delta, $user['id']]);
 
-                    if ($currency === 'coins') {
-                        $stmt = $db->prepare("
-                            INSERT INTO coin_history (user_id, amount, type, source, reference, created_at)
-                            VALUES (?, ?, 'admin_adjustment', ?, ?, ?)
-                        ");
-                        $stmt->execute([
-                            $user['id'],
-                            $delta,
-                            ($action === 'add' ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT'),
-                            ($note ?: ($action === 'add' ? 'Admin Credited Balance' : 'Admin Debited Balance')),
-                            $now
-                        ]);
-                    }
+                    $stmt = $db->prepare("
+                        INSERT INTO coin_history (user_id, amount, type, source, reference, created_at)
+                        VALUES (?, ?, 'admin_adjustment', ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $user['id'],
+                        $delta,
+                        ($action === 'add' ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT'),
+                        ($note ?: ($action === 'add' ? 'Admin Credited Balance' : 'Admin Debited Balance')),
+                        $now
+                    ]);
 
                     $stmt = $db->prepare("
                         INSERT INTO admin_balance_logs (admin_id, user_id, amount, note, created_at)
                         VALUES (?, ?, ?, ?, ?)
                     ");
-                    $memo = "[$currency " . strtoupper($action) . "] " . ($note ?: 'Admin adjustment');
+                    $memo = "[COINS " . strtoupper($action) . "] " . ($note ?: 'Admin coin adjustment');
                     $stmt->execute([$admin['id'], $user['id'], $delta, $memo, $now]);
 
-                    log_admin_action($db, $admin['id'], "Adjusted user #{$user['id']} $column by $delta");
+                    log_admin_action($db, $admin['id'], "Adjusted user #{$user['id']} coins by $delta");
 
                     $db->commit();
-                    $msg = "Successfully " . ($action === 'add' ? 'credited' : 'debited') . " " . number_format($amount, 2) . " " . ($currency === 'balance' ? 'BDT' : 'UC') . " for " . htmlspecialchars($user['name']);
+                    $msg = "Successfully " . ($action === 'add' ? 'credited' : 'debited') . " 🪙 " . number_format($amount, 2) . " Coins for " . htmlspecialchars($user['name']);
                 } catch (Throwable $e) {
                     $db->rollBack();
                     $err = "Adjustment error: " . $e->getMessage();
@@ -83,11 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* FETCH RECENT USERS FOR QUICK SELECTION */
-$users = $db->query("SELECT id, name, phone, coins, balance FROM users ORDER BY id DESC LIMIT 150")->fetchAll(PDO::FETCH_ASSOC);
+$users = $db->query("SELECT id, name, phone, coins FROM users ORDER BY id DESC LIMIT 150")->fetchAll(PDO::FETCH_ASSOC);
 
 $pageTitle = 'Adjust Member Balance';
 $activeNav = 'add_balance.php';
-$pageSubtitle = 'Safely inject or deduct club coins and fiat BDT balance from member accounts.';
+$pageSubtitle = 'Safely inject or deduct club coins (🪙) from member accounts.';
 
 require_once __DIR__ . "/layout_top.php";
 ?>
@@ -108,7 +104,7 @@ require_once __DIR__ . "/layout_top.php";
 
 <div class="admin-card" style="max-width: 650px; margin: 0 auto;">
     <div class="admin-card-header">
-        <h2 class="admin-card-title">💸 Balance &amp; Coin Adjustment Tool</h2>
+        <h2 class="admin-card-title">💸 Coin Adjustment Tool</h2>
         <a href="balance_logs.php" class="admin-btn admin-btn-secondary admin-btn-sm">
             📜 Adjustment Logs
         </a>
@@ -122,32 +118,22 @@ require_once __DIR__ . "/layout_top.php";
                 <option value="">-- Choose Member from Registry --</option>
                 <?php foreach ($users as $u): ?>
                     <option value="<?= $u['id'] ?>" <?= ($prefillUserId === (int)$u['id'] || $prefillPhone === $u['phone']) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($u['name']) ?> (<?= htmlspecialchars($u['phone']) ?>) • 🪙 <?= number_format($u['coins'], 2) ?> | ৳ <?= number_format($u['balance'], 2) ?>
+                        <?= htmlspecialchars($u['name']) ?> (<?= htmlspecialchars($u['phone']) ?>) • 🪙 <?= number_format($u['coins'], 2) ?> Coins
                     </option>
                 <?php endforeach; ?>
             </select>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-            <div class="admin-form-group">
-                <label class="admin-label">Asset Type</label>
-                <select name="currency" class="admin-select" id="currencySelect">
-                    <option value="coins">🪙 Club Coins (UC)</option>
-                    <option value="balance">৳ Fiat BDT Balance</option>
-                </select>
-            </div>
-
-            <div class="admin-form-group">
-                <label class="admin-label">Adjustment Direction</label>
-                <select name="action" class="admin-select" id="actionSelect">
-                    <option value="add">➕ Credit / Inject (+)</option>
-                    <option value="deduct">➖ Debit / Deduct (-)</option>
-                </select>
-            </div>
+        <div class="admin-form-group">
+            <label class="admin-label">Adjustment Direction</label>
+            <select name="action" class="admin-select" id="actionSelect">
+                <option value="add">➕ Credit / Inject Coins (+)</option>
+                <option value="deduct">➖ Debit / Deduct Coins (-)</option>
+            </select>
         </div>
 
         <div class="admin-form-group">
-            <label class="admin-label">Adjustment Amount</label>
+            <label class="admin-label">Adjustment Amount (🪙 Coins)</label>
             <input type="number" step="0.01" min="0.01" name="amount" id="amountInput" class="admin-input" placeholder="e.g. 500.00" required>
         </div>
 
@@ -157,7 +143,7 @@ require_once __DIR__ . "/layout_top.php";
         </div>
 
         <button type="submit" class="admin-btn admin-btn-primary admin-btn-block" style="width: 100%; height: 46px;">
-            ⚡ Execute Balance Adjustment
+            ⚡ Execute Coin Adjustment
         </button>
     </form>
 </div>
@@ -169,13 +155,12 @@ document.getElementById('balanceAdjustForm').addEventListener('submit', function
 
     const userSel = document.getElementById('userSelect');
     const userText = userSel.options[userSel.selectedIndex]?.text || 'Selected Member';
-    const curr = document.getElementById('currencySelect').value === 'coins' ? '🪙 UC Coins' : '৳ BDT Balance';
     const act = document.getElementById('actionSelect').value === 'add' ? 'Credit (+)' : 'Debit (-)';
     const amt = parseFloat(document.getElementById('amountInput').value || 0).toFixed(2);
 
     window.showAppConfirm({
-        title: 'Confirm Balance Adjustment',
-        message: `Execute <strong>${act}</strong> of <strong>${amt} ${curr}</strong> for:<br><br><span style="color:#ffffff; font-size:13px;">${userText}</span>`,
+        title: 'Confirm Coin Adjustment',
+        message: `Execute <strong>${act}</strong> of <strong>🪙 ${amt} Coins</strong> for:<br><br><span style="color:#ffffff; font-size:13px;">${userText}</span>`,
         icon: '⚡',
         danger: act.includes('Debit'),
         type: act.includes('Debit') ? 'danger' : 'primary',

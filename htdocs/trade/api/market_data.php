@@ -47,6 +47,9 @@ try {
 
     // Pool health stats
     $pool = $db->query("SELECT bdt_reserve, tuc_reserve, total_fee_revenue_bdt, conversion_fee_revenue_bdt, status FROM liquidity_pool WHERE id = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    $bdtRes = (float)($pool['bdt_reserve'] ?? 500000.0);
+    $tucRes = (float)(($pool['tuc_reserve'] ?? 0) > 0 ? $pool['tuc_reserve'] : 250000.0);
+    $backingPrice = round($bdtRes / $tucRes, 4);
 
     echo json_encode([
         'success' => true,
@@ -70,7 +73,9 @@ try {
         ],
         'recent_trades' => $recentTrades,
         'liquidity_pool' => [
-            'bdt_reserve' => (float)($pool['bdt_reserve'] ?? 500000.0),
+            'bdt_reserve' => $bdtRes,
+            'tuc_reserve' => $tucRes,
+            'backing_price' => $backingPrice,
             'total_fee_revenue' => (float)($pool['total_fee_revenue_bdt'] ?? 0.0),
             'conversion_fee_revenue' => (float)($pool['conversion_fee_revenue_bdt'] ?? 0.0),
             'status' => $pool['status'] ?? 'active'

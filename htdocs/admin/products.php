@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             WHERE id = ?
         ")->execute([$name, $name, $price, $discount, $delivery_time, $active, $id]);
 
-        log_admin_action($db, $admin['id'], "Updated product #$id settings ($name, ৳$price)");
+        log_admin_action($db, $admin['id'], "Updated product #$id settings ($name, 🪙$price Coins)");
 
         $msg = "Product '$name' updated! Linked instantly with user store (/buy.php).";
     }
@@ -63,7 +63,7 @@ $products = $db->query("SELECT * FROM products ORDER BY id ASC")->fetchAll(PDO::
 
 $pageTitle = 'Products Catalog & Store Settings';
 $activeNav = 'products.php';
-$pageSubtitle = 'Configure items, pricing, discounts, and live store availability linked with user panel (/buy.php).';
+$pageSubtitle = 'Configure items, coin pricing, discounts, and live store availability linked with user panel (/buy.php).';
 
 require_once __DIR__ . "/layout_top.php";
 ?>
@@ -95,12 +95,12 @@ require_once __DIR__ . "/layout_top.php";
         </div>
 
         <div class="admin-form-group" style="margin: 0;">
-            <label class="admin-label">Price (৳ BDT)</label>
-            <input type="number" step="0.01" name="price" placeholder="100.00" class="admin-input" required>
+            <label class="admin-label">Price (🪙 Coins)</label>
+            <input type="number" step="0.01" name="price" placeholder="30.00" class="admin-input" required>
         </div>
 
         <div class="admin-form-group" style="margin: 0;">
-            <label class="admin-label">Discount (৳ BDT)</label>
+            <label class="admin-label">Discount (🪙 Coins)</label>
             <input type="number" step="0.01" name="discount" value="0.00" class="admin-input">
         </div>
 
@@ -144,7 +144,6 @@ require_once __DIR__ . "/layout_top.php";
                 $pPrice = (float)($p['price'] ?? 0);
                 $pDisc = (float)($p['discount'] ?? 0);
                 $pFinal = max(0, round($pPrice - ($pDisc > 1 ? $pDisc : ($pPrice * $pDisc / 100)), 2));
-                $pCoins = round($pFinal * 10, 2);
                 ?>
                 <div style="background: var(--admin-panel-alt); border: 1px solid var(--admin-border); border-radius: var(--admin-radius-lg); padding: 20px;">
                     <form method="post">
@@ -169,12 +168,12 @@ require_once __DIR__ . "/layout_top.php";
 
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                             <div class="admin-form-group">
-                                <label class="admin-label">Regular Price (৳)</label>
+                                <label class="admin-label">Regular Price (🪙 Coins)</label>
                                 <input type="number" step="0.01" name="price" value="<?= $pPrice ?>" class="admin-input" required>
                             </div>
 
                             <div class="admin-form-group">
-                                <label class="admin-label">Discount (৳)</label>
+                                <label class="admin-label">Discount (🪙 Coins)</label>
                                 <input type="number" step="0.01" name="discount" value="<?= $pDisc ?>" class="admin-input" required>
                             </div>
                         </div>
@@ -183,7 +182,7 @@ require_once __DIR__ . "/layout_top.php";
                         <div style="background: rgba(255, 255, 255, 0.04); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 12.5px; line-height: 1.5;">
                             <div style="color: var(--admin-text-muted);">User Store Preview:</div>
                             <div style="color: var(--admin-accent); font-weight: 800;">
-                                Final: ৳<?= number_format($pFinal, 2) ?> | 🪙 <?= number_format($pCoins, 2) ?> Coins
+                                Final Price: 🪙 <?= number_format($pFinal, 2) ?> Coins
                             </div>
                         </div>
 

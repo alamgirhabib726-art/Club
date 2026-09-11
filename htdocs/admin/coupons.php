@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (?, ?, ?, 'active', ?)
             ")->execute([$code, $amount, $type, $now]);
 
-            log_admin_action($db, $admin['id'], "Created coupon $code for ৳$amount");
+            log_admin_action($db, $admin['id'], "Created coupon $code for 🪙$amount Coins");
 
             $_SESSION['coupon_success'] = "Generated coupon code: $code";
             header("Location: coupons.php");
@@ -103,7 +103,7 @@ require_once __DIR__ . "/layout_top.php";
         </div>
 
         <div class="admin-form-group" style="margin-bottom: 0;">
-            <label class="admin-label">Value Amount (৳ BDT)</label>
+            <label class="admin-label">Value Amount (🪙 Coins)</label>
             <input type="number" step="1" min="1" name="amount" class="admin-input" placeholder="e.g. 500" required>
         </div>
 
@@ -158,7 +158,7 @@ require_once __DIR__ . "/layout_top.php";
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <strong style="color: #ffffff;">৳ <?= number_format($c['amount'], 2) ?></strong>
+                                <strong style="color: #ffffff;">🪙 <?= number_format($c['amount'], 2) ?> Coins</strong>
                             </td>
                             <td>
                                 <?php if ($c['status'] === 'used'): ?>
