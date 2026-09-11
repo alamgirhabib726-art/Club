@@ -133,6 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Upgrade to Premium • Unmoor Club</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="stylesheet" href="assets/style.css">
+    <script src="assets/modal.js"></script>
     <style>
         body.premium-body {
             background-color: #f1f5f9;
@@ -358,7 +359,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     function copyNum() {
         const n = document.getElementById('payNum').innerText.trim();
         navigator.clipboard.writeText(n).then(() => {
-            alert('Number copied: ' + n);
+            window.showAppToast('Payment number copied: ' + n, 'copy');
         });
     }
     </script>

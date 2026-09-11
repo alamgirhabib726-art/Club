@@ -242,6 +242,7 @@ try {
     <title>Head / Tail Game • Unmoor Club</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="stylesheet" href="assets/style.css">
+    <script src="assets/modal.js"></script>
     <style>
         .coin-stage {
             perspective: 800px;
@@ -443,12 +444,24 @@ try {
         const bet = parseFloat(input.value);
 
         if (isNaN(bet) || bet < 0.1) {
-            alert('Please enter a valid bet amount of at least 0.10 coins.');
+            window.showAppAlert({
+                title: 'Invalid Wager Amount',
+                message: 'Please enter a valid bet amount of at least <strong>0.10 UC coins</strong>.',
+                icon: '🪙',
+                type: 'warning',
+                buttonText: 'Got It'
+            });
             return;
         }
 
         if (bet > userAvailableBalance) {
-            alert('Insufficient available balance. You have 🪙 ' + userAvailableBalance.toFixed(2));
+            window.showAppAlert({
+                title: 'Insufficient Balance',
+                message: `You do not have enough coins to place this bet.<br><br>Available Balance: <strong style="color: #fbbf24;">🪙 ${userAvailableBalance.toFixed(2)} UC</strong>`,
+                icon: '⚠️',
+                type: 'danger',
+                buttonText: 'Understood'
+            });
             return;
         }
 

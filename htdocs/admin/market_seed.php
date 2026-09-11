@@ -85,7 +85,7 @@ require_once __DIR__ . "/layout_top.php";
         <h2 class="admin-card-title">🌱 Seed Internal Market Rate</h2>
     </div>
 
-    <form method="post">
+    <form method="post" data-confirm="Update market baseline seed price? This alters live quote pricing." data-confirm-title="Confirm Market Seed" data-confirm-danger="true" data-confirm-btn="Update Benchmark">
         <div class="admin-form-group">
             <label class="admin-label">Seed Price (৳ BDT per unit)</label>
             <input type="number" step="0.01" min="0.01" name="price" class="admin-input" placeholder="e.g. 10.00" value="<?= $currentPrice ? htmlspecialchars((string)$currentPrice) : '' ?>" required>
@@ -94,7 +94,7 @@ require_once __DIR__ . "/layout_top.php";
             </div>
         </div>
 
-        <button type="submit" class="admin-btn admin-btn-primary admin-btn-block" style="width: 100%;" onclick="return confirm('Update market baseline seed?')">
+        <button type="submit" class="admin-btn admin-btn-primary admin-btn-block" style="width: 100%;">
             🌱 Inject Market Benchmark
         </button>
     </form>

@@ -15,6 +15,7 @@ if (!isset($pageSubtitle)) $pageSubtitle = 'Administrator Management Console';
     <title><?= htmlspecialchars($pageTitle) ?> • Unmoor Admin</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../assets/admin.css">
+    <script src="../assets/modal.js"></script>
 </head>
 <body>
 

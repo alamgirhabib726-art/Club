@@ -192,14 +192,14 @@ require_once __DIR__ . "/layout_top.php";
                             <td style="text-align: right;">
                                 <?php if ($p['status'] === 'pending'): ?>
                                     <div style="display: inline-flex; gap: 6px;">
-                                        <form method="post" action="approve_payment.php" style="display:inline;" onsubmit="return confirm('Approve payment of ৳<?= $p['amount'] ?> for <?= htmlspecialchars($p['user_name']) ?>?')">
+                                        <form method="post" action="approve_payment.php" style="display:inline;" data-confirm="Approve payment of ৳<?= number_format($p['amount'], 2) ?> for <?= htmlspecialchars($p['user_name']) ?>?" data-confirm-title="Approve Deposit Payment" data-confirm-btn="Yes, Approve Payment">
                                             <input type="hidden" name="payment_id" value="<?= $p['id'] ?>">
                                             <button type="submit" class="admin-btn admin-btn-sm admin-btn-success">
                                                 ✅ Approve
                                             </button>
                                         </form>
 
-                                        <a href="reject.php?id=<?= $p['id'] ?>" class="admin-btn admin-btn-sm admin-btn-danger" onclick="return confirm('Reject this payment?')">
+                                        <a href="reject.php?id=<?= $p['id'] ?>" class="admin-btn admin-btn-sm admin-btn-danger" data-confirm="Reject deposit payment #<?= $p['id'] ?>?" data-confirm-title="Reject Payment" data-confirm-danger="true" data-confirm-btn="Yes, Reject">
                                             ❌ Reject
                                         </a>
                                     </div>

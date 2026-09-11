@@ -36,6 +36,7 @@ $availMargin = (float)($balances['trading_wallet']['available_margin'] ?? 0);
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Instant Convert & Wallets — Unmoor Club</title>
     <link rel="stylesheet" href="/assets/style.css">
+    <script src="/assets/modal.js"></script>
     <style>
         :root {
             --bg-body: #070b14;

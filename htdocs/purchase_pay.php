@@ -16,19 +16,19 @@ if (!isset($_SESSION['user_id'])) {
 $uid = (int)$_SESSION['user_id'];
 
 /* FETCH PRODUCT */
-$slug = $_GET['product'] ?? '';
+$idOrSlug = trim($_GET['id'] ?? ($_GET['product'] ?? ''));
 
 $stmt = $db->prepare("
-    SELECT id, title, price, discount, slug, type
+    SELECT id, title, name, price, discount, slug, type, delivery_time
     FROM products
-    WHERE (slug = ? OR type = ?) AND active = 1
+    WHERE (id = ? OR slug = ? OR type = ?) AND active = 1
     LIMIT 1
 ");
-$stmt->execute([$slug, $slug]);
+$stmt->execute([$idOrSlug, $idOrSlug, $idOrSlug]);
 $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$product) {
-    header("Location: purchase.php");
+    header("Location: buy.php");
     exit;
 }
 
@@ -91,6 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title><?= htmlspecialchars($product['title'] ?? 'Product') ?> Payment • Unmoor Club</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="stylesheet" href="assets/style.css">
+    <script src="assets/modal.js"></script>
 </head>
 <body>
     <div class="page-wrap">
@@ -156,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     function copyNum() {
         const n = document.getElementById('payNum').innerText.trim();
         navigator.clipboard.writeText(n).then(() => {
-            alert('Payment number copied: ' + n);
+            window.showAppToast('Payment number copied: ' + n, 'copy');
         });
     }
     </script>

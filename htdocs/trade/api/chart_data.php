@@ -26,8 +26,8 @@ try {
     $stmt->execute([$resolution, $limit]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // If table is newly seeded, generate initial historical baseline candles
-    if (count($rows) < 30) {
+    // If table is newly seeded or timeframe lacks depth, generate initial historical baseline candles
+    if (count($rows) < 100) {
         $now = time();
         $resSec = match($resolution) {
             '5m' => 300,
@@ -38,21 +38,21 @@ try {
             default => 60
         };
 
-        $basePrice = 2.0000;
+        $basePrice = (float)($db->query("SELECT price FROM market_state WHERE symbol = 'UC'")->fetchColumn() ?: 2.0000);
         $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
         $nowExpr = ($driver === 'sqlite') ? "datetime('now')" : "NOW()";
 
         $ins = $db->prepare("INSERT OR IGNORE INTO market_candles (symbol, resolution, open, high, low, close, volume, timestamp, created_at)
             VALUES ('UC', ?, ?, ?, ?, ?, ?, ?, $nowExpr)");
 
-        for ($i = 50; $i >= 1; $i--) {
+        for ($i = 120; $i >= 1; $i--) {
             $t = (int)(floor(($now - ($i * $resSec)) / $resSec) * $resSec);
-            $randFluc = (sin($i / 5.0) * 0.04) + ((mt_rand(-50, 50) / 1000.0) * 0.02);
+            $randFluc = (sin($i / 7.0) * 0.03) + ((mt_rand(-40, 40) / 1000.0) * 0.015);
             $cOpen = round($basePrice + $randFluc, 4);
-            $cClose = round($cOpen + (mt_rand(-20, 20) / 1000.0), 4);
-            $cHigh = round(max($cOpen, $cClose) + (mt_rand(1, 15) / 1000.0), 4);
-            $cLow = round(min($cOpen, $cClose) - (mt_rand(1, 15) / 1000.0), 4);
-            $cVol = round(mt_rand(10, 80) + (mt_rand(1, 99) / 100.0), 2);
+            $cClose = round($cOpen + (mt_rand(-25, 25) / 1000.0), 4);
+            $cHigh = round(max($cOpen, $cClose) + (mt_rand(2, 20) / 1000.0), 4);
+            $cLow = round(max(0.1, min($cOpen, $cClose) - (mt_rand(2, 20) / 1000.0)), 4);
+            $cVol = round(mt_rand(15, 120) + (mt_rand(1, 99) / 100.0), 2);
 
             try {
                 $ins->execute([$resolution, $cOpen, $cHigh, $cLow, $cClose, $cVol, $t]);

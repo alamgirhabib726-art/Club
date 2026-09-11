@@ -20,33 +20,39 @@ if (($balances['status'] !== 'active' && $balances['status'] !== 'premium') || $
     die("ACCESS DENIED");
 }
 
-/* ================= PRODUCTS ================= */
-$products = [
-    'power' => [
-        'id'    => 1,
-        'name'  => 'Power Click',
-        'icon'  => '⚡',
-        'coins' => 2000,
-        'tag'   => 'VIP Premium',
-        'desc'  => 'High-tier automated mining boost with priority fulfillment.'
-    ],
-    'joint' => [
-        'id'    => 2,
-        'name'  => 'Joint Click',
-        'icon'  => '🤝',
-        'coins' => 1000,
-        'tag'   => 'Most Popular',
-        'desc'  => 'Syndicate co-operative multi-node click pack.'
-    ],
-    'paper' => [
-        'id'    => 3,
-        'name'  => 'Paper Click',
-        'icon'  => '📄',
-        'coins' => 500,
-        'tag'   => 'Starter Pack',
-        'desc'  => 'Essential entry-level member utility credit.'
-    ]
-];
+/* ================= PRODUCTS (DYNAMICALLY LINKED FROM DB) ================= */
+$dbProducts = $db->query("SELECT * FROM products WHERE active = 1 ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+$products = [];
+foreach ($dbProducts as $row) {
+    $key = $row['slug'] ?: ($row['type'] ?: ('prod_'.$row['id']));
+    $price = (float)$row['price'];
+    $disc = (float)($row['discount'] ?? 0);
+    $finalBdt = max(0, round($price - ($disc > 1 ? $disc : ($price * $disc / 100)), 2));
+    
+    $name = $row['name'] ?: $row['title'];
+    $icon = '📦';
+    if (str_contains($name, '⚡') || stripos($name, 'Power') !== false) $icon = '⚡';
+    elseif (str_contains($name, '🚀') || stripos($name, 'Turbo') !== false) $icon = '🚀';
+    elseif (str_contains($name, '🔥') || stripos($name, 'Raw') !== false) $icon = '🔥';
+    elseif (str_contains($name, '🤝') || stripos($name, 'Joint') !== false) $icon = '🤝';
+    elseif (str_contains($name, '📄') || stripos($name, 'Paper') !== false) $icon = '📄';
+    elseif (str_contains($name, '💎') || stripos($name, 'VIP') !== false) $icon = '💎';
+    elseif (stripos($name, 'Manta') !== false) $icon = '🌊';
+
+    $cleanName = trim(preg_replace('/^[\p{So}\p{Sk}\s]+/u', '', $name));
+    if ($cleanName === '') $cleanName = $name;
+
+    $products[$key] = [
+        'id'        => (int)$row['id'],
+        'name'      => $name,
+        'clean_name'=> $cleanName,
+        'icon'      => $icon,
+        'coins'     => round($finalBdt * 10, 2),
+        'price_bdt' => $finalBdt,
+        'tag'       => $disc > 0 ? 'Discounted' : ($finalBdt >= 50 ? 'VIP Premium' : 'Active Item'),
+        'desc'      => 'Delivery schedule: ' . ($row['delivery_time'] ?: 'Instant')
+    ];
+}
 
 $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') || (isset($_POST['ajax']) && $_POST['ajax'] === '1');
 

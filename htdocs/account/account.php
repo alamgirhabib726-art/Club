@@ -45,6 +45,7 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
     <title>My Account • Unmoor Club</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="stylesheet" href="../assets/style.css">
+    <script src="../assets/modal.js"></script>
 </head>
 <body>
     <div class="page-wrap">
@@ -168,10 +169,27 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
 
         <!-- LOGOUT BUTTON -->
         <div style="margin-top: 14px; margin-bottom: 24px;">
-            <a href="../logout.php" class="btn btn-danger btn-block" style="text-align: center; text-decoration: none;" onclick="return confirm('Are you sure you want to log out of your Unmoor Club account?')">
+            <a href="../logout.php" id="btnLogout" class="btn btn-danger btn-block" style="text-align: center; text-decoration: none;">
                 🚪 Secure Log Out
             </a>
         </div>
+
+        <script>
+        document.getElementById('btnLogout').addEventListener('click', function(e) {
+            e.preventDefault();
+            window.showAppConfirm({
+                title: 'Confirm Sign Out',
+                message: 'Are you sure you want to log out of your Unmoor Club account on this device?',
+                icon: '🚪',
+                danger: true,
+                confirmText: 'Yes, Sign Out',
+                cancelText: 'Stay Logged In',
+                onConfirm: () => {
+                    window.location.href = '../logout.php';
+                }
+            });
+        });
+        </script>
 
         <!-- SUPPORT WIDGET -->
         <?= render_support_widget() ?>

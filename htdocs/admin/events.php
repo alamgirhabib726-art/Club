@@ -127,7 +127,7 @@ require_once __DIR__ . "/layout_top.php";
                         <span style="font-size: 12px; color: var(--admin-text-dim);">
                             👥 <?= $ev['participant_count'] ?> participants
                         </span>
-                        <form method="post" onsubmit="return confirm('Delete this event? All participant records for this event will also be removed.')">
+                        <form method="post" data-confirm="Delete this event? All participant records for this event will also be removed." data-confirm-title="Delete Club Event" data-confirm-danger="true" data-confirm-btn="Yes, Delete Event">
                             <input type="hidden" name="delete_event" value="1">
                             <input type="hidden" name="event_id" value="<?= $ev['id'] ?>">
                             <button type="submit" class="admin-btn admin-btn-danger admin-btn-sm">

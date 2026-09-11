@@ -77,10 +77,10 @@ require_once __DIR__ . "/layout_top.php";
                             <td style="text-align: right;">
                                 <?php if ($o['status'] === 'pending'): ?>
                                     <div style="display: inline-flex; gap: 6px;">
-                                        <a class="admin-btn admin-btn-sm admin-btn-success" href="purchase_action.php?id=<?= $o['id'] ?>&action=approve" onclick="return confirm('Approve order #<?= $o['id'] ?>?')">
+                                        <a class="admin-btn admin-btn-sm admin-btn-success" href="purchase_action.php?id=<?= $o['id'] ?>&action=approve" data-confirm="Approve and fulfill purchase order #<?= $o['id'] ?> for <?= htmlspecialchars($o['user_name'] ?? 'User') ?>?" data-confirm-title="Approve Order" data-confirm-btn="Yes, Approve Order">
                                             ✅ Approve
                                         </a>
-                                        <a class="admin-btn admin-btn-sm admin-btn-danger" href="purchase_action.php?id=<?= $o['id'] ?>&action=reject" onclick="return confirm('Reject order #<?= $o['id'] ?>?')">
+                                        <a class="admin-btn admin-btn-sm admin-btn-danger" href="purchase_action.php?id=<?= $o['id'] ?>&action=reject" data-confirm="Reject purchase order #<?= $o['id'] ?> and refund locked funds?" data-confirm-title="Reject Order" data-confirm-danger="true" data-confirm-btn="Yes, Reject Order">
                                             ❌ Reject
                                         </a>
                                     </div>

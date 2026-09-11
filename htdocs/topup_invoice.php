@@ -63,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Top-Up Invoice • Unmoor Club</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="stylesheet" href="assets/style.css">
+    <script src="assets/modal.js"></script>
 </head>
 <body>
     <div class="page-wrap">
@@ -132,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     function copyInvoiceNum() {
         const num = document.getElementById('invoiceNum').innerText.trim();
         navigator.clipboard.writeText(num).then(() => {
-            alert('Payment number copied: ' + num);
+            window.showAppToast('Payment number copied: ' + num, 'copy');
         });
     }
     </script>

@@ -79,7 +79,7 @@ require_once __DIR__ . "/layout_top.php";
         <?php endif; ?>
     </div>
 
-    <form method="post" onsubmit="return confirm('Confirm toggling maintenance mode?')">
+    <form method="post" data-confirm="Confirm toggling maintenance mode for Unmoor Club?" data-confirm-title="Maintenance Mode State" data-confirm-danger="true" data-confirm-btn="Toggle State">
         <?php if ($maintenance): ?>
             <button type="submit" class="admin-btn admin-btn-success" style="width: 100%; padding: 16px; font-size: 16px;">
                 🟢 Restore Live Operations (Disable Maintenance)

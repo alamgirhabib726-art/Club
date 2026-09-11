@@ -129,13 +129,13 @@ require_once __DIR__ . "/layout_top.php";
         <h2 class="admin-card-title">💸 System Treasury Cashout / Rebalance</h2>
     </div>
 
-    <form method="post" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+    <form method="post" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;" data-confirm="Execute system treasury vault cashout?" data-confirm-title="Confirm Vault Cashout" data-confirm-danger="true" data-confirm-btn="Confirm Cashout">
         <div class="admin-form-group" style="margin-bottom: 0; flex: 1; max-width: 320px;">
             <label class="admin-label">Coin Amount to Cashout</label>
             <input type="number" step="0.01" min="1" max="<?= (float)$system['coins'] ?>" name="cashout" class="admin-input" placeholder="e.g. 500.00" required>
         </div>
 
-        <button type="submit" class="admin-btn admin-btn-danger" style="height: 46px;" onclick="return confirm('Execute system vault cashout?')">
+        <button type="submit" class="admin-btn admin-btn-danger" style="height: 46px;">
             ⚡ Withdraw from Treasury
         </button>
     </form>

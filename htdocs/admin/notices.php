@@ -112,7 +112,7 @@ require_once __DIR__ . "/layout_top.php";
                         <?= htmlspecialchars($n['message']) ?>
                     </div>
                     <div style="display: flex; justify-content: flex-end;">
-                        <a href="notices.php?delete=<?= (int)$n['id'] ?>" class="admin-btn admin-btn-danger admin-btn-sm" onclick="return confirm('Are you sure you want to delete this notice?')">
+                        <a href="notices.php?delete=<?= (int)$n['id'] ?>" class="admin-btn admin-btn-danger admin-btn-sm" data-confirm="Are you sure you want to delete this notice?" data-confirm-title="Delete Notice" data-confirm-danger="true" data-confirm-btn="Delete Notice">
                             🗑️ Delete Notice
                         </a>
                     </div>

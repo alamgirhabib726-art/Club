@@ -31,21 +31,23 @@ $settings = FeeEngine::getSettings($db);
     <title>UC/BDT Pro Trading Terminal — Unmoor Club</title>
     <!-- Lightweight Charts for TradingView grade financial charting -->
     <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="/assets/modal.js"></script>
     <style>
         :root {
-            --tv-bg: #131722;
-            --tv-surface: #1e222d;
-            --tv-surface-elevated: #262b3e;
+            --tv-bg: #181a20;
+            --tv-surface: #1e2329;
+            --tv-surface-elevated: #2b313a;
             --tv-border: rgba(255, 255, 255, 0.08);
-            --tv-border-hover: rgba(59, 130, 246, 0.4);
-            --tv-up: #089981;
-            --tv-up-soft: rgba(8, 153, 129, 0.15);
-            --tv-down: #f23645;
-            --tv-down-soft: rgba(242, 54, 69, 0.15);
-            --tv-blue: #2962ff;
-            --tv-gold: #f59e0b;
-            --tv-text: #d1d4dc;
-            --tv-text-dim: #787b86;
+            --tv-border-hover: rgba(252, 213, 53, 0.4);
+            --tv-up: #0ecb81;
+            --tv-up-soft: rgba(14, 203, 129, 0.15);
+            --tv-down: #f6465d;
+            --tv-down-soft: rgba(246, 70, 93, 0.15);
+            --tv-blue: #3861fb;
+            --tv-gold: #fcd535;
+            --tv-yellow: #fcd535;
+            --tv-text: #eaecef;
+            --tv-text-dim: #848e9c;
             --tv-text-white: #ffffff;
         }
 
@@ -257,63 +259,208 @@ $settings = FeeEngine::getSettings($db);
             flex-direction: column;
         }
 
-        /* Chart Header & Controls */
-        .chart-toolbar {
+        /* Binance-Grade Trading Chart Styling */
+        .binance-chart-card {
+            background: #181a20;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .binance-chart-card.fullscreen-mode {
+            position: fixed !important;
+            inset: 0 !important;
+            z-index: 9999 !important;
+            border-radius: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+        }
+        .binance-chart-card.fullscreen-mode .chart-canvas-box {
+            height: calc(100vh - 100px) !important;
+        }
+        .binance-chart-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 8px 12px;
-            border-bottom: 1px solid var(--tv-border);
-            background: var(--tv-surface);
+            background: #1e2329;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
             flex-wrap: wrap;
             gap: 8px;
+            user-select: none;
         }
-        .timeframe-group {
+        .binance-tf-bar {
             display: flex;
             align-items: center;
-            gap: 4px;
+            gap: 2px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 2px;
         }
-        .tf-btn {
+        .binance-tf-bar::-webkit-scrollbar {
+            height: 3px;
+        }
+        .binance-tf-bar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        .binance-tf-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #848e9c;
+            margin-right: 6px;
+            text-transform: uppercase;
+        }
+        .binance-tf-btn {
             background: transparent;
-            border: 1px solid transparent;
-            color: var(--tv-text-dim);
-            padding: 4px 8px;
-            border-radius: 6px;
+            border: none;
+            color: #848e9c;
+            padding: 5px 9px;
+            border-radius: 4px;
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
-            font-family: monospace;
-            transition: all 0.15s;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            transition: all 0.12s ease;
+            white-space: nowrap;
         }
-        .tf-btn:hover {
-            color: var(--tv-text-white);
+        .binance-tf-btn:hover {
+            color: #eaecef;
             background: rgba(255, 255, 255, 0.04);
         }
-        .tf-btn.active {
-            color: var(--tv-text-white);
-            background: var(--tv-blue);
-            border-color: var(--tv-blue);
+        .binance-tf-btn.active {
+            color: #fcd535;
+            background: rgba(252, 213, 53, 0.12);
+            font-weight: 800;
         }
-
-        .ohlc-legend {
+        .binance-divider {
+            width: 1px;
+            height: 16px;
+            background: rgba(255, 255, 255, 0.12);
+            margin: 0 6px;
+        }
+        .binance-header-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .binance-tool-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #848e9c;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 11.5px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.12s ease;
+            white-space: nowrap;
+        }
+        .binance-tool-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+        .binance-tool-btn.active {
+            color: #fcd535;
+            border-color: rgba(252, 213, 53, 0.4);
+            background: rgba(252, 213, 53, 0.1);
+        }
+        /* Floating HUD legend on canvas */
+        .binance-ohlc-banner {
+            position: absolute;
+            top: 48px;
+            left: 12px;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            background: rgba(24, 26, 32, 0.85);
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(6px);
+            font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, monospace;
+            font-size: 11px;
+            line-height: 1.4;
+            max-width: calc(100% - 24px);
+        }
+        .binance-legend-row-1 {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-size: 11px;
-            font-family: monospace;
-            color: var(--tv-text-dim);
             flex-wrap: wrap;
+            color: #848e9c;
         }
-        .ohlc-legend span strong {
-            color: var(--tv-text-white);
+        .binance-pair-title {
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 12px;
+        }
+        .binance-res-badge {
+            background: rgba(252, 213, 53, 0.15);
+            color: #fcd535;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 800;
+        }
+        .binance-stat strong {
+            color: #ffffff;
+        }
+        .binance-stat strong.up {
+            color: #0ecb81;
+        }
+        .binance-stat strong.down {
+            color: #f6465d;
+        }
+        .binance-legend-row-2 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 10.5px;
+        }
+        .ma-pill.ma-7 {
+            color: #fcd535;
+        }
+        .ma-pill.ma-25 {
+            color: #e040fb;
+        }
+        .ma-pill.ma-99 {
+            color: #00e5ff;
+        }
+        .chart-loading-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(24, 26, 32, 0.9);
+            padding: 10px 18px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #fcd535;
+            font-weight: 800;
+            font-size: 12.5px;
+            display: none;
+            z-index: 20;
+            pointer-events: none;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
 
         .chart-canvas-box {
             position: relative;
             width: 100%;
-            height: 380px;
+            height: 390px;
             min-height: 340px;
-            background: var(--tv-bg);
+            background: #181a20;
         }
         @media (min-width: 768px) {
             .chart-canvas-box {
@@ -921,28 +1068,58 @@ $settings = FeeEngine::getSettings($db);
 
         <!-- SECTION 1: TRADINGVIEW CHART & DATA FEEDS -->
         <div style="display: flex; flex-direction: column; gap: 10px;">
-            <!-- Candlestick Chart Card -->
-            <div class="tv-card">
+            <!-- Candlestick Chart Card (Binance Style) -->
+            <div class="binance-chart-card" id="binance-chart-card">
                 <!-- Toolbar -->
-                <div class="chart-toolbar">
-                    <div class="timeframe-group">
-                        <span style="font-size: 11px; font-weight: 700; color: var(--tv-text-dim); margin-right: 4px;">Time:</span>
-                        <?php foreach (['1m', '5m', '15m', '1h', '4h', '1d'] as $tf): ?>
-                            <button class="tf-btn <?= $tf === '1m' ? 'active' : '' ?>" data-tf="<?= $tf ?>" onclick="changeTimeframe('<?= $tf ?>')">
-                                <?= $tf ?>
-                            </button>
-                        <?php endforeach; ?>
+                <div class="binance-chart-header">
+                    <div class="binance-tf-bar">
+                        <span class="binance-tf-label">Time</span>
+                        <button class="binance-tf-btn" data-tf="1s" onclick="changeTimeframe('1s')">1s</button>
+                        <button class="binance-tf-btn active" data-tf="1m" onclick="changeTimeframe('1m')">1m</button>
+                        <button class="binance-tf-btn" data-tf="5m" onclick="changeTimeframe('5m')">5m</button>
+                        <button class="binance-tf-btn" data-tf="15m" onclick="changeTimeframe('15m')">15m</button>
+                        <button class="binance-tf-btn" data-tf="1h" onclick="changeTimeframe('1h')">1h</button>
+                        <button class="binance-tf-btn" data-tf="4h" onclick="changeTimeframe('4h')">4h</button>
+                        <button class="binance-tf-btn" data-tf="1d" onclick="changeTimeframe('1d')">1D</button>
+                        
+                        <div class="binance-divider"></div>
+                        
+                        <button class="binance-tool-btn active" id="btn-toggle-ma" onclick="toggleMA()" title="Toggle Moving Averages (MA7, MA25, MA99)">MA</button>
+                        <button class="binance-tool-btn active" id="btn-toggle-vol" onclick="toggleVol()" title="Toggle Volume Sub-chart">VOL</button>
                     </div>
 
-                    <div class="ohlc-legend">
-                        <span>O: <strong id="legend-open">-</strong></span>
-                        <span>H: <strong id="legend-high">-</strong></span>
-                        <span>L: <strong id="legend-low">-</strong></span>
-                        <span>C: <strong id="legend-close">-</strong></span>
+                    <div class="binance-header-right">
+                        <button class="binance-tool-btn" id="btn-chart-type" onclick="toggleChartType()" title="Switch chart representation">🕯️ Candles</button>
+                        <button class="binance-tool-btn" onclick="resetChartScale()" title="Fit Chart Scale">⤢ Reset</button>
+                        <button class="binance-tool-btn" onclick="toggleChartFullscreen()" title="Fullscreen Mode" id="btn-fullscreen-toggle">⛶</button>
                     </div>
                 </div>
 
-                <!-- Canvas -->
+                <!-- Floating Binance HUD Legend -->
+                <div class="binance-ohlc-banner" id="binance-ohlc-banner">
+                    <div class="binance-legend-row-1">
+                        <span class="binance-pair-title">UC/BDT</span>
+                        <span class="binance-res-badge" id="legend-tf-badge">1m</span>
+                        <span class="binance-stat">O: <strong id="legend-open">-</strong></span>
+                        <span class="binance-stat">H: <strong id="legend-high">-</strong></span>
+                        <span class="binance-stat">L: <strong id="legend-low">-</strong></span>
+                        <span class="binance-stat">C: <strong id="legend-close">-</strong></span>
+                        <span class="binance-stat">Chg: <strong id="legend-chg">-</strong></span>
+                        <span class="binance-stat" id="legend-vol-stat">Vol: <strong id="legend-volume">-</strong></span>
+                    </div>
+                    <div class="binance-legend-row-2" id="binance-ma-legend">
+                        <span class="ma-pill ma-7">MA(7): <strong id="legend-ma7">-</strong></span>
+                        <span class="ma-pill ma-25">MA(25): <strong id="legend-ma25">-</strong></span>
+                        <span class="ma-pill ma-99">MA(99): <strong id="legend-ma99">-</strong></span>
+                    </div>
+                </div>
+
+                <!-- Loading Spinner -->
+                <div class="chart-loading-indicator" id="chart-loading-indicator">
+                    <span>⚡ Loading <span id="loading-tf-text">1m</span> Chart...</span>
+                </div>
+
+                <!-- Canvas Root -->
                 <div class="chart-canvas-box" id="chart-canvas-root"></div>
             </div>
 
@@ -1247,9 +1424,22 @@ $settings = FeeEngine::getSettings($db);
 
         let chart = null;
         let candleSeries = null;
+        let lineSeries = null;
+        let volumeSeries = null;
+        let ma7Series = null;
+        let ma25Series = null;
+        let ma99Series = null;
+        let currentCandles = [];
+        let showMA = true;
+        let showVol = true;
+        let chartMode = 'candles'; // 'candles' or 'line'
 
         // Custom Toast Helper
         function showToast(msg, icon = 'ℹ️') {
+            if (typeof window.showAppToast === 'function') {
+                window.showAppToast(msg, 3000);
+                return;
+            }
             const root = document.getElementById('tv-toast-root');
             const toast = document.createElement('div');
             toast.className = 'tv-toast';
@@ -1324,28 +1514,61 @@ $settings = FeeEngine::getSettings($db);
             });
         }
 
-        // Initialize TradingView Lightweight Chart
+        // SMA Indicator Calculation
+        function calculateSMA(candles, period) {
+            const result = [];
+            for (let i = 0; i < candles.length; i++) {
+                if (i < period - 1) continue;
+                let sum = 0;
+                for (let j = 0; j < period; j++) {
+                    sum += candles[i - j].close;
+                }
+                result.push({
+                    time: candles[i].time,
+                    value: parseFloat((sum / period).toFixed(4))
+                });
+            }
+            return result;
+        }
+
+        // Initialize Binance-Grade Lightweight Chart
         function initChart() {
             const container = document.getElementById('chart-canvas-root');
             if (!container) return;
 
             chart = LightweightCharts.createChart(container, {
                 width: container.clientWidth,
-                height: container.clientHeight || 400,
+                height: container.clientHeight || 420,
                 layout: {
-                    background: { color: '#131722' },
-                    textColor: '#787b86',
-                    fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, sans-serif',
+                    background: { color: '#181a20' },
+                    textColor: '#848e9c',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                 },
                 grid: {
-                    vertLines: { color: 'rgba(255, 255, 255, 0.04)' },
-                    horzLines: { color: 'rgba(255, 255, 255, 0.04)' },
+                    vertLines: { color: 'rgba(255, 255, 255, 0.03)' },
+                    horzLines: { color: 'rgba(255, 255, 255, 0.03)' },
                 },
                 crosshair: {
                     mode: LightweightCharts.CrosshairMode.Normal,
+                    vertLine: {
+                        color: 'rgba(255, 255, 255, 0.2)',
+                        width: 1,
+                        style: 3,
+                        labelBackgroundColor: '#2b313a',
+                    },
+                    horzLine: {
+                        color: 'rgba(255, 255, 255, 0.2)',
+                        width: 1,
+                        style: 3,
+                        labelBackgroundColor: '#2b313a',
+                    },
                 },
                 rightPriceScale: {
                     borderColor: 'rgba(255, 255, 255, 0.08)',
+                    scaleMargins: {
+                        top: 0.1,
+                        bottom: 0.22,
+                    },
                 },
                 timeScale: {
                     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -1354,30 +1577,92 @@ $settings = FeeEngine::getSettings($db);
                 },
             });
 
-            candleSeries = chart.addCandlestickSeries({
-                upColor: '#089981',
-                downColor: '#f23645',
-                borderDownColor: '#f23645',
-                borderUpColor: '#089981',
-                wickDownColor: '#f23645',
-                wickUpColor: '#089981',
+            // Volume Sub-pane
+            volumeSeries = chart.addHistogramSeries({
+                priceFormat: {
+                    type: 'volume',
+                },
+                priceScaleId: 'volume_scale',
+            });
+            chart.priceScale('volume_scale').applyOptions({
+                scaleMargins: {
+                    top: 0.82,
+                    bottom: 0,
+                },
             });
 
-            // Crosshair move listener for OHLC legend
+            // Candlesticks Series (Binance Colors)
+            candleSeries = chart.addCandlestickSeries({
+                upColor: '#0ecb81',
+                downColor: '#f6465d',
+                borderDownColor: '#f6465d',
+                borderUpColor: '#0ecb81',
+                wickDownColor: '#f6465d',
+                wickUpColor: '#0ecb81',
+            });
+
+            // Line Chart Series (Alternative view)
+            lineSeries = chart.addLineSeries({
+                color: '#fcd535',
+                lineWidth: 2,
+                visible: false,
+                crosshairMarkerVisible: true,
+            });
+
+            // Moving Averages: MA(7)=Yellow, MA(25)=Purple/Magenta, MA(99)=Cyan
+            ma7Series = chart.addLineSeries({
+                color: '#fcd535',
+                lineWidth: 1.5,
+                priceLineVisible: false,
+                lastValueVisible: false,
+            });
+            ma25Series = chart.addLineSeries({
+                color: '#e040fb',
+                lineWidth: 1.5,
+                priceLineVisible: false,
+                lastValueVisible: false,
+            });
+            ma99Series = chart.addLineSeries({
+                color: '#00e5ff',
+                lineWidth: 1.5,
+                priceLineVisible: false,
+                lastValueVisible: false,
+            });
+
+            // Crosshair move listener for interactive Binance OHLC & Indicator HUD
             chart.subscribeCrosshairMove(param => {
-                if (!param || !param.seriesData || !param.seriesData.get(candleSeries)) {
+                if (!param || !param.time || !param.seriesData) {
+                    if (currentCandles.length > 0) {
+                        const last = currentCandles[currentCandles.length - 1];
+                        updateLegend(last);
+                    }
                     return;
                 }
-                const data = param.seriesData.get(candleSeries);
-                if (data) {
-                    document.getElementById('legend-open').textContent = '৳ ' + data.open.toFixed(4);
-                    document.getElementById('legend-high').textContent = '৳ ' + data.high.toFixed(4);
-                    document.getElementById('legend-low').textContent = '৳ ' + data.low.toFixed(4);
-                    document.getElementById('legend-close').textContent = '৳ ' + data.close.toFixed(4);
+
+                const cData = param.seriesData.get(candleSeries) || param.seriesData.get(lineSeries);
+                const vData = param.seriesData.get(volumeSeries);
+                const ma7Data = param.seriesData.get(ma7Series);
+                const ma25Data = param.seriesData.get(ma25Series);
+                const ma99Data = param.seriesData.get(ma99Series);
+
+                if (cData) {
+                    const c = {
+                        open: cData.open !== undefined ? cData.open : cData.value,
+                        high: cData.high !== undefined ? cData.high : cData.value,
+                        low: cData.low !== undefined ? cData.low : cData.value,
+                        close: cData.close !== undefined ? cData.close : cData.value,
+                        volume: vData ? vData.value : 0
+                    };
+                    updateLegend(
+                        c, 
+                        ma7Data ? ma7Data.value : undefined,
+                        ma25Data ? ma25Data.value : undefined,
+                        ma99Data ? ma99Data.value : undefined
+                    );
                 }
             });
 
-            // Auto Resize
+            // Auto Resize using ResizeObserver
             new ResizeObserver(entries => {
                 if (entries.length && chart) {
                     chart.applyOptions({
@@ -1390,31 +1675,183 @@ $settings = FeeEngine::getSettings($db);
             loadChartData();
         }
 
+        function updateLegend(c, ma7Val, ma25Val, ma99Val) {
+            if (!c) return;
+            const openEl = document.getElementById('legend-open');
+            const highEl = document.getElementById('legend-high');
+            const lowEl = document.getElementById('legend-low');
+            const closeEl = document.getElementById('legend-close');
+            const chgEl = document.getElementById('legend-chg');
+            const volEl = document.getElementById('legend-volume');
+            const ma7El = document.getElementById('legend-ma7');
+            const ma25El = document.getElementById('legend-ma25');
+            const ma99El = document.getElementById('legend-ma99');
+
+            if (openEl) openEl.textContent = '৳ ' + c.open.toFixed(4);
+            if (highEl) highEl.textContent = '৳ ' + c.high.toFixed(4);
+            if (lowEl) lowEl.textContent = '৳ ' + c.low.toFixed(4);
+            if (closeEl) {
+                closeEl.textContent = '৳ ' + c.close.toFixed(4);
+                closeEl.className = c.close >= c.open ? 'up' : 'down';
+            }
+
+            if (chgEl) {
+                const diff = c.close - c.open;
+                const pct = c.open > 0 ? (diff / c.open) * 100 : 0;
+                chgEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+                chgEl.className = pct >= 0 ? 'up' : 'down';
+            }
+
+            if (volEl) {
+                volEl.textContent = (c.volume || 0).toFixed(2);
+                volEl.className = c.close >= c.open ? 'up' : 'down';
+            }
+
+            if (ma7El) ma7El.textContent = ma7Val !== undefined ? '৳ ' + ma7Val.toFixed(4) : '-';
+            if (ma25El) ma25El.textContent = ma25Val !== undefined ? '৳ ' + ma25Val.toFixed(4) : '-';
+            if (ma99El) ma99El.textContent = ma99Val !== undefined ? '৳ ' + ma99Val.toFixed(4) : '-';
+        }
+
         async function loadChartData() {
+            const indicator = document.getElementById('chart-loading-indicator');
+            const tfText = document.getElementById('loading-tf-text');
+            if (indicator && tfText) {
+                tfText.textContent = activeTimeframe;
+                indicator.style.display = 'block';
+            }
+
             try {
-                const res = await fetch(`/trade/api/chart_data.php?resolution=${activeTimeframe}&limit=200`);
+                const queryTf = activeTimeframe === '1s' ? '1m' : activeTimeframe;
+                const res = await fetch(`/trade/api/chart_data.php?resolution=${queryTf}&limit=200`);
                 const data = await res.json();
                 if (data.success && data.candles && candleSeries) {
+                    currentCandles = data.candles;
+
+                    // Set Candlesticks
                     candleSeries.setData(data.candles);
+
+                    // Set Line chart data
+                    if (lineSeries) {
+                        lineSeries.setData(data.candles.map(c => ({ time: c.time, value: c.close })));
+                    }
+
+                    // Set Volume Histogram
+                    if (volumeSeries && showVol) {
+                        const volData = data.candles.map(c => ({
+                            time: c.time,
+                            value: c.volume,
+                            color: c.close >= c.open ? 'rgba(14, 203, 129, 0.45)' : 'rgba(246, 70, 93, 0.45)'
+                        }));
+                        volumeSeries.setData(volData);
+                    }
+
+                    // Set Moving Averages
+                    if (showMA) {
+                        const ma7 = calculateSMA(data.candles, 7);
+                        const ma25 = calculateSMA(data.candles, 25);
+                        const ma99 = calculateSMA(data.candles, 99);
+
+                        if (ma7Series) ma7Series.setData(ma7);
+                        if (ma25Series) ma25Series.setData(ma25);
+                        if (ma99Series) ma99Series.setData(ma99);
+                    }
+
+                    // Update HUD Legend with latest candle
                     if (data.candles.length > 0) {
                         const last = data.candles[data.candles.length - 1];
-                        document.getElementById('legend-open').textContent = '৳ ' + last.open.toFixed(4);
-                        document.getElementById('legend-high').textContent = '৳ ' + last.high.toFixed(4);
-                        document.getElementById('legend-low').textContent = '৳ ' + last.low.toFixed(4);
-                        document.getElementById('legend-close').textContent = '৳ ' + last.close.toFixed(4);
+                        const ma7Arr = showMA ? calculateSMA(data.candles, 7) : [];
+                        const ma25Arr = showMA ? calculateSMA(data.candles, 25) : [];
+                        const ma99Arr = showMA ? calculateSMA(data.candles, 99) : [];
+
+                        const lastMA7 = ma7Arr.length > 0 ? ma7Arr[ma7Arr.length - 1].value : undefined;
+                        const lastMA25 = ma25Arr.length > 0 ? ma25Arr[ma25Arr.length - 1].value : undefined;
+                        const lastMA99 = ma99Arr.length > 0 ? ma99Arr[ma99Arr.length - 1].value : undefined;
+
+                        updateLegend(last, lastMA7, lastMA25, lastMA99);
                     }
                 }
             } catch (e) {
                 console.error("Failed to load chart data:", e);
+            } finally {
+                if (indicator) indicator.style.display = 'none';
             }
         }
 
         function changeTimeframe(tf) {
             activeTimeframe = tf;
-            document.querySelectorAll('.tf-btn').forEach(btn => {
+            document.querySelectorAll('.binance-tf-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.getAttribute('data-tf') === tf);
             });
+            const badge = document.getElementById('legend-tf-badge');
+            if (badge) badge.textContent = tf;
+
             loadChartData();
+        }
+
+        function toggleMA() {
+            showMA = !showMA;
+            const btn = document.getElementById('btn-toggle-ma');
+            const legend = document.getElementById('binance-ma-legend');
+            if (btn) btn.classList.toggle('active', showMA);
+            if (legend) legend.style.display = showMA ? 'flex' : 'none';
+
+            if (ma7Series) ma7Series.applyOptions({ visible: showMA });
+            if (ma25Series) ma25Series.applyOptions({ visible: showMA });
+            if (ma99Series) ma99Series.applyOptions({ visible: showMA });
+
+            if (showMA && currentCandles.length > 0) {
+                ma7Series.setData(calculateSMA(currentCandles, 7));
+                ma25Series.setData(calculateSMA(currentCandles, 25));
+                ma99Series.setData(calculateSMA(currentCandles, 99));
+            }
+        }
+
+        function toggleVol() {
+            showVol = !showVol;
+            const btn = document.getElementById('btn-toggle-vol');
+            const stat = document.getElementById('legend-vol-stat');
+            if (btn) btn.classList.toggle('active', showVol);
+            if (stat) stat.style.display = showVol ? 'inline-block' : 'none';
+            if (volumeSeries) volumeSeries.applyOptions({ visible: showVol });
+        }
+
+        function toggleChartType() {
+            chartMode = chartMode === 'candles' ? 'line' : 'candles';
+            const btn = document.getElementById('btn-chart-type');
+            if (chartMode === 'candles') {
+                if (btn) btn.textContent = '🕯️ Candles';
+                candleSeries.applyOptions({ visible: true });
+                lineSeries.applyOptions({ visible: false });
+            } else {
+                if (btn) btn.textContent = '📈 Line';
+                candleSeries.applyOptions({ visible: false });
+                lineSeries.applyOptions({ visible: true });
+            }
+        }
+
+        function resetChartScale() {
+            if (chart) {
+                chart.timeScale().fitContent();
+            }
+        }
+
+        function toggleChartFullscreen() {
+            const card = document.getElementById('binance-chart-card');
+            const btn = document.getElementById('btn-fullscreen-toggle');
+            card.classList.toggle('fullscreen-mode');
+            const isFull = card.classList.contains('fullscreen-mode');
+            btn.textContent = isFull ? '✕ Exit' : '⛶';
+
+            setTimeout(() => {
+                if (chart) {
+                    const container = document.getElementById('chart-canvas-root');
+                    chart.applyOptions({
+                        width: container.clientWidth,
+                        height: container.clientHeight
+                    });
+                    chart.timeScale().fitContent();
+                }
+            }, 60);
         }
 
         // Trade Mode Switch
@@ -1782,6 +2219,21 @@ $settings = FeeEngine::getSettings($db);
                     }
 
                     calculateFuturesMetrics();
+
+                    // Update live candlestick with current tick
+                    if (candleSeries && currentCandles.length > 0) {
+                        const lastCandle = currentCandles[currentCandles.length - 1];
+                        lastCandle.close = currentPrice;
+                        lastCandle.high = Math.max(lastCandle.high, currentPrice);
+                        lastCandle.low = Math.min(lastCandle.low, currentPrice);
+                        try {
+                            candleSeries.update(lastCandle);
+                            if (lineSeries) {
+                                lineSeries.update({ time: lastCandle.time, value: currentPrice });
+                            }
+                            updateLegend(lastCandle);
+                        } catch (e) {}
+                    }
                 }
 
                 // 2. Positions & Wallets

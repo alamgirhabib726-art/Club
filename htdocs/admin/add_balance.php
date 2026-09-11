@@ -114,7 +114,7 @@ require_once __DIR__ . "/layout_top.php";
         </a>
     </div>
 
-    <form method="post">
+    <form method="post" id="balanceAdjustForm">
         
         <div class="admin-form-group">
             <label class="admin-label">Select Target Member</label>
@@ -131,7 +131,7 @@ require_once __DIR__ . "/layout_top.php";
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
             <div class="admin-form-group">
                 <label class="admin-label">Asset Type</label>
-                <select name="currency" class="admin-select">
+                <select name="currency" class="admin-select" id="currencySelect">
                     <option value="coins">🪙 Club Coins (UC)</option>
                     <option value="balance">৳ Fiat BDT Balance</option>
                 </select>
@@ -139,7 +139,7 @@ require_once __DIR__ . "/layout_top.php";
 
             <div class="admin-form-group">
                 <label class="admin-label">Adjustment Direction</label>
-                <select name="action" class="admin-select">
+                <select name="action" class="admin-select" id="actionSelect">
                     <option value="add">➕ Credit / Inject (+)</option>
                     <option value="deduct">➖ Debit / Deduct (-)</option>
                 </select>
@@ -148,7 +148,7 @@ require_once __DIR__ . "/layout_top.php";
 
         <div class="admin-form-group">
             <label class="admin-label">Adjustment Amount</label>
-            <input type="number" step="0.01" min="0.01" name="amount" class="admin-input" placeholder="e.g. 500.00" required>
+            <input type="number" step="0.01" min="0.01" name="amount" id="amountInput" class="admin-input" placeholder="e.g. 500.00" required>
         </div>
 
         <div class="admin-form-group">
@@ -156,10 +156,37 @@ require_once __DIR__ . "/layout_top.php";
             <input type="text" name="note" class="admin-input" placeholder="e.g. Tournament reward, manual refund, corrections">
         </div>
 
-        <button type="submit" class="admin-btn admin-btn-primary admin-btn-block" style="width: 100%; height: 46px;" onclick="return confirm('Confirm balance adjustment?')">
+        <button type="submit" class="admin-btn admin-btn-primary admin-btn-block" style="width: 100%; height: 46px;">
             ⚡ Execute Balance Adjustment
         </button>
     </form>
 </div>
+
+<script>
+document.getElementById('balanceAdjustForm').addEventListener('submit', function(e) {
+    if (this.dataset.confirmed === 'true') return;
+    e.preventDefault();
+
+    const userSel = document.getElementById('userSelect');
+    const userText = userSel.options[userSel.selectedIndex]?.text || 'Selected Member';
+    const curr = document.getElementById('currencySelect').value === 'coins' ? '🪙 UC Coins' : '৳ BDT Balance';
+    const act = document.getElementById('actionSelect').value === 'add' ? 'Credit (+)' : 'Debit (-)';
+    const amt = parseFloat(document.getElementById('amountInput').value || 0).toFixed(2);
+
+    window.showAppConfirm({
+        title: 'Confirm Balance Adjustment',
+        message: `Execute <strong>${act}</strong> of <strong>${amt} ${curr}</strong> for:<br><br><span style="color:#ffffff; font-size:13px;">${userText}</span>`,
+        icon: '⚡',
+        danger: act.includes('Debit'),
+        type: act.includes('Debit') ? 'danger' : 'primary',
+        confirmText: 'Confirm & Execute',
+        cancelText: 'Review Form',
+        onConfirm: () => {
+            this.dataset.confirmed = 'true';
+            this.submit();
+        }
+    });
+});
+</script>
 
 <?php require_once __DIR__ . "/layout_bottom.php"; ?>

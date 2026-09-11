@@ -241,7 +241,7 @@ require_once __DIR__ . "/layout_top.php";
                             <td style="text-align: right;">
                                 <div style="display: inline-flex; gap: 6px; align-items: center;">
                                     <?php if ($u['apply_status'] === 'pending'): ?>
-                                        <a href="users.php?action=approve&id=<?= $u['id'] ?>" class="admin-btn admin-btn-sm admin-btn-success" onclick="return confirm('Approve this user account?')">
+                                        <a href="users.php?action=approve&id=<?= $u['id'] ?>" class="admin-btn admin-btn-sm admin-btn-success" data-confirm="Approve this user account for Unmoor Club?" data-confirm-title="Approve Member" data-confirm-btn="Yes, Approve">
                                             ✅ Approve
                                         </a>
                                     <?php endif; ?>
@@ -252,11 +252,11 @@ require_once __DIR__ . "/layout_top.php";
 
                                     <?php if ($u['role'] !== 'admin' && $u['role'] !== 'system'): ?>
                                         <?php if ($u['status'] === 'banned'): ?>
-                                            <a href="users.php?action=unban&id=<?= $u['id'] ?>" class="admin-btn admin-btn-sm admin-btn-secondary" onclick="return confirm('Unban this user?')">
+                                            <a href="users.php?action=unban&id=<?= $u['id'] ?>" class="admin-btn admin-btn-sm admin-btn-secondary" data-confirm="Unban this user and restore account access?" data-confirm-title="Unban Member" data-confirm-btn="Yes, Unban">
                                                 Unban
                                             </a>
                                         <?php else: ?>
-                                            <a href="users.php?action=ban&id=<?= $u['id'] ?>" class="admin-btn admin-btn-sm admin-btn-danger" onclick="return confirm('Are you sure you want to ban this user?')">
+                                            <a href="users.php?action=ban&id=<?= $u['id'] ?>" class="admin-btn admin-btn-sm admin-btn-danger" data-confirm="Are you sure you want to ban this user? They will immediately lose access." data-confirm-title="Ban Member" data-confirm-danger="true" data-confirm-btn="Yes, Ban User">
                                                 Ban
                                             </a>
                                         <?php endif; ?>

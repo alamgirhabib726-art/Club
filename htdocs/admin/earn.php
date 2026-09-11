@@ -154,7 +154,7 @@ require_once __DIR__ . "/layout_top.php";
                                     <a href="earn.php?toggle=<?= $b['id'] ?>" class="admin-btn admin-btn-sm admin-btn-secondary">
                                         <?= $b['status'] === 'active' ? 'Turn Off' : 'Turn On' ?>
                                     </a>
-                                    <a href="earn.php?delete=<?= $b['id'] ?>" class="admin-btn admin-btn-sm admin-btn-danger" onclick="return confirm('Delete this earn button?')">
+                                    <a href="earn.php?delete=<?= $b['id'] ?>" class="admin-btn admin-btn-sm admin-btn-danger" data-confirm="Delete this earn button?" data-confirm-title="Delete Button" data-confirm-danger="true" data-confirm-btn="Delete">
                                         Delete
                                     </a>
                                 </div>

@@ -199,6 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_deposit'])) {
     <title>Deposit Funds • Unmoor Club</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
     <link rel="stylesheet" href="assets/style.css">
+    <script src="assets/modal.js"></script>
 </head>
 <body>
     <div class="page-wrap">
@@ -303,7 +304,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_deposit'])) {
     function copyDepNum() {
         const num = document.getElementById('depNum').innerText.trim();
         navigator.clipboard.writeText(num).then(() => {
-            alert('Number copied to clipboard: ' + num);
+            window.showAppToast('Payment number copied: ' + num, 'copy');
         });
     }
     </script>
