@@ -163,7 +163,7 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
                 🏦 Financial & Trading Services
             </h3>
             
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
                 <a href="deposit.php" style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 6px; text-align: center; text-decoration: none; color: #ffffff; display: flex; flex-direction: column; align-items: center; gap: 6px;">
                     <span style="font-size: 22px;">💳</span>
                     <span style="font-size: 13px; font-weight: 800;">Deposit</span>
@@ -178,17 +178,15 @@ $isVip = ($user['status'] === 'premium' || $user['role'] === 'admin');
                     <span style="font-size: 22px;">📜</span>
                     <span style="font-size: 13px; font-weight: 800;">History</span>
                 </a>
-            </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <a href="/trade/" style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(30, 58, 138, 0.4)); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: var(--radius-md); padding: 12px 10px; text-align: center; text-decoration: none; color: #60a5fa; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; font-size: 13px;">
-                    <span style="font-size: 18px;">📈</span>
-                    <span>Pro Trading</span>
+                <a href="/trade/" style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 6px; text-align: center; text-decoration: none; color: #ffffff; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                    <span style="font-size: 22px;">📈</span>
+                    <span style="font-size: 13px; font-weight: 800;">Trading</span>
                 </a>
 
-                <a href="convert.php" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.4)); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: var(--radius-md); padding: 12px 10px; text-align: center; text-decoration: none; color: #34d399; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; font-size: 13px;">
-                    <span style="font-size: 18px;">🔄</span>
-                    <span>Convert (1:10)</span>
+                <a href="convert.php" style="background: var(--bg-dark); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 6px; text-align: center; text-decoration: none; color: #ffffff; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+                    <span style="font-size: 22px;">💱</span>
+                    <span style="font-size: 13px; font-weight: 800;">Convert</span>
                 </a>
             </div>
         </div>
